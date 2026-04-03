@@ -19,9 +19,12 @@ export async function getPresignedUrl(req, res) {
 
     const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
+    const bucketUrl = process.env.AWS_PUBLIC_URL || `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+    const fileUrl = `${bucketUrl}/${key}`;
+
     res.status(200).json({
-      url: presignedUrl,
-      key,
+      presignedUrl,
+      fileUrl,
     });
   } catch (error) {
     console.error("Error generating presigned URL:", error);
