@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
-import { BellIcon, LayoutDashboard, HeadphonesIcon, UsersIcon, PlayCircleIcon } from "lucide-react";
+import { BellIcon, LayoutDashboard, HeadphonesIcon, UsersIcon } from "lucide-react";
+import GlobalMusicPlayer from "./GlobalMusicPlayer";
 
 const Sidebar = () => {
   const { authUser } = useAuthUser();
@@ -50,11 +51,8 @@ const Sidebar = () => {
         </Link>
       </nav>
 
-      {/* GLOBAL MUSIC PLAYER PLACEHOLDER */}
-      <div className="p-4 mx-4 mb-4 rounded-xl bg-base-200 border border-base-300 shadow-inner flex flex-col items-center gap-2">
-        <PlayCircleIcon className="size-8 text-primary opacity-50" />
-        <span className="text-xs text-center text-base-content/60 font-medium">Global Player (Coming Soon)</span>
-      </div>
+      {/* GLOBAL MUSIC PLAYER */}
+      <GlobalMusicPlayer />
 
       {/* USER PROFILE SECTION */}
       <div className="p-4 border-t border-base-300 bg-base-200/50 mt-auto backdrop-blur-sm">
