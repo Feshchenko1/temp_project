@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String          @id @default(uuid())
+  fullName         String
+  email            String          @unique
+  password         String
+  bio              String?         @default("")
+  profilePic       String?         @default("")
+  isOnboarded      Boolean         @default(false)
+  instrumentsKnown   String[]
+  instrumentsToLearn String[]
+  spokenLanguages    String[]
+  location         String?         @default("")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  friends          User[]          @relation("UserFriends")
+  friendOf         User[]          @relation("UserFriends")
+  
+  sentRequests     FriendRequest[] @relation("SenderRequests")
+  receivedRequests FriendRequest[] @relation("RecipientRequests")
+  
+  chats            Chat[]          @relation("ChatMembers")
+  messages         Message[]
+}
+
+model FriendRequest {
+  id         String   @id @default(uuid())
+  senderId   String
+  recipientId String
+  status     String   @default("pending") // "pending", "accepted", "rejected"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sender    User @relation("SenderRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User @relation("RecipientRequests", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, recipientId])
+}
+
+model Chat {
+  id        String   @id @default(uuid())
+  isGroup   Boolean  @default(false)
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   User[]    @relation("ChatMembers")
+  messages  Message[]
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String?
+  fileUrl   String?
+  fileType  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  senderId  String
+  chatId    String
+
+  sender    User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  chat      Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+model Instrument {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Track {
+  id        String   @id @default(uuid())
+  title     String
+  artist    String
+  fileUrl   String
+  createdAt DateTime @default(now())
+}
