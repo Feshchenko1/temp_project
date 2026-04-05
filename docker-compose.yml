@@ -21,10 +21,11 @@ services:
     restart: unless-stopped
     networks:
       - harmonix-net
+    # ПЕРЕДАЄМО ВЕСЬ ФАЙЛ .env ОДРАЗУ В КОНТЕЙНЕР
+    env_file:
+      - ./backend/.env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
 
   nginx:
     image: nginx:alpine

@@ -38,7 +38,7 @@ export async function getMyFriends(req, res) {
             fullName: true,
             profilePic: true,
             instrumentsKnown: true,
-            instrumentsLearn: true,
+            instrumentsToLearn: true,
           }
         }
       }
@@ -148,7 +148,7 @@ export async function getFriendRequests(req, res) {
         status: "pending",
       },
       include: {
-        sender: { select: { id: true, fullName: true, profilePic: true, instrumentsKnown: true, instrumentsLearn: true } }
+        sender: { select: { id: true, fullName: true, profilePic: true, instrumentsKnown: true, instrumentsToLearn: true } }
       }
     });
 
@@ -178,7 +178,7 @@ export async function getOutgoingFriendReqs(req, res) {
         status: "pending",
       },
       include: {
-        recipient: { select: { id: true, fullName: true, profilePic: true, instrumentsKnown: true, instrumentsLearn: true } }
+        recipient: { select: { id: true, fullName: true, profilePic: true, instrumentsKnown: true, instrumentsToLearn: true } }
       }
     });
 

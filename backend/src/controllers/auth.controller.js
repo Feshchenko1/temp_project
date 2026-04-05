@@ -27,8 +27,8 @@ export async function signup(req, res) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const idx = Math.floor(Math.random() * 100) + 1;
-    const randomAvatar = `https://avatar.iran.liara.run/public/${idx}.png`;
+    const randomSeed = encodeURIComponent(fullName || Math.random().toString(36).substring(7));
+    const randomAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomSeed}`;
 
     const newUser = await prisma.user.create({
       data: {
@@ -97,7 +97,7 @@ export function logout(req, res) {
 export async function onboard(req, res) {
   try {
     const userId = req.user.id;
-    const { fullName, bio, instrumentsKnown, instrumentsLearn, spokenLanguages, location } = req.body;
+    const { fullName, bio, instrumentsKnown, instrumentsToLearn, spokenLanguages, location, profilePic } = req.body;
 
     if (!fullName) {
       return res.status(400).json({
@@ -111,9 +111,10 @@ export async function onboard(req, res) {
         fullName,
         bio: bio || "",
         instrumentsKnown: instrumentsKnown || [],
-        instrumentsLearn: instrumentsLearn || [],
+        instrumentsToLearn: instrumentsToLearn || [],
         spokenLanguages: spokenLanguages || [],
         location: location || "",
+        ...(profilePic && { profilePic }),
         isOnboarded: true,
       },
     });
