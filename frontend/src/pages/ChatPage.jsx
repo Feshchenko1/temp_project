@@ -1,14 +1,10 @@
 import React from "react";
-import PageLoader from "../components/PageLoader";
+import SecureChat from "../components/SecureChat";
 
 const ChatPage = () => {
   return (
-    <div className="h-[93vh] flex items-center justify-center bg-base-200">
-      <div className="text-center space-y-4">
-        <h2 className="text-2xl font-bold">Secure Chat Environment</h2>
-        <p className="opacity-70">This module is being modernized to use WebSockets with E2EE.</p>
-        <PageLoader />
-      </div>
+    <div className="h-[93vh] max-w-5xl mx-auto p-4 md:p-6 animate-in fade-in zoom-in duration-300">
+      <SecureChat chatId="demo-chat-uid" currentUserId="mock-current-user-uuid" />
     </div>
   );
 };
