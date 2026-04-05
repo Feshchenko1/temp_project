@@ -44,7 +44,7 @@ const NotificationsPage = () => {
                 <div className="space-y-3">
                   {incomingRequests.map((request) => (
                     <div
-                      key={request._id}
+                      key={request.id}
                       className="card bg-base-200 shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div className="card-body p-4">
@@ -56,19 +56,23 @@ const NotificationsPage = () => {
                             <div>
                               <h3 className="font-semibold">{request.sender.fullName}</h3>
                               <div className="flex flex-wrap gap-1.5 mt-1">
-                                <span className="badge badge-secondary badge-sm">
-                                  Native: {request.sender.nativeLanguage}
-                                </span>
-                                <span className="badge badge-outline badge-sm">
-                                  Learning: {request.sender.learningLanguage}
-                                </span>
+                                {request.sender.instrumentsKnown && request.sender.instrumentsKnown.length > 0 && (
+                                  <span className="badge badge-secondary badge-sm">
+                                    Plays: {request.sender.instrumentsKnown.join(", ")}
+                                  </span>
+                                )}
+                                {request.sender.instrumentsToLearn && request.sender.instrumentsToLearn.length > 0 && (
+                                  <span className="badge badge-outline badge-sm">
+                                    Learning: {request.sender.instrumentsToLearn.join(", ")}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
 
                           <button
                             className="btn btn-primary btn-sm"
-                            onClick={() => acceptRequestMutation(request._id)}
+                            onClick={() => acceptRequestMutation(request.id)}
                             disabled={isPending}
                           >
                             Accept
@@ -91,7 +95,7 @@ const NotificationsPage = () => {
 
                 <div className="space-y-3">
                   {acceptedRequests.map((notification) => (
-                    <div key={notification._id} className="card bg-base-200 shadow-sm">
+                    <div key={notification.id} className="card bg-base-200 shadow-sm">
                       <div className="card-body p-4">
                         <div className="flex items-start gap-3">
                           <div className="avatar mt-1 size-10 rounded-full">
