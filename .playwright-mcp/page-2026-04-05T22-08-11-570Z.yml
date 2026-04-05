@@ -1,0 +1,30 @@
+- generic [ref=e5]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - img [ref=e9]
+      - generic [ref=e11]: Harmonix
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - heading "Studio Access" [level=2] [ref=e15]
+        - paragraph [ref=e16]: Authenticate to access your workstation.
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e20]: Email
+          - generic [ref=e21]:
+            - img [ref=e22]
+            - textbox "producer@harmonix.com" [ref=e25]
+        - generic [ref=e26]:
+          - generic [ref=e28]: Password
+          - generic [ref=e29]:
+            - img [ref=e30]
+            - textbox "••••••••" [ref=e34]
+        - button "Initialize Session" [ref=e35] [cursor=pointer]
+        - paragraph [ref=e37]:
+          - text: New to Harmonix?
+          - link "Create Profile" [ref=e38] [cursor=pointer]:
+            - /url: /signup
+  - generic [ref=e42]:
+    - img [ref=e43]
+    - generic [ref=e45]:
+      - heading "Sync With The Community" [level=2] [ref=e46]
+      - paragraph [ref=e47]: Join a high-fidelity network of session players, producers, and students.

@@ -1,0 +1,84 @@
+- generic [ref=e49]:
+  - complementary [ref=e50]:
+    - link "Harmonix" [ref=e52] [cursor=pointer]:
+      - /url: /
+      - img [ref=e53]
+      - generic [ref=e55]: Harmonix
+    - navigation [ref=e56]:
+      - link "Studio Dashboard" [ref=e57] [cursor=pointer]:
+        - /url: /
+        - img [ref=e58]
+        - generic [ref=e63]: Studio Dashboard
+      - link "Collaborators" [ref=e64] [cursor=pointer]:
+        - /url: /
+        - img [ref=e65]
+        - generic [ref=e70]: Collaborators
+      - link "Activity" [ref=e71] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=e72]
+        - generic [ref=e75]: Activity
+    - generic [ref=e76]:
+      - generic [ref=e77]:
+        - img "Cover" [ref=e79]
+        - generic [ref=e80]:
+          - heading "Neon Pulse" [level=4] [ref=e81]
+          - paragraph [ref=e82]: Synthwave Collaborative
+      - generic [ref=e83]:
+        - generic [ref=e84]:
+          - button [ref=e85] [cursor=pointer]:
+            - img [ref=e86]
+          - button [ref=e88] [cursor=pointer]:
+            - img [ref=e89]
+          - button [ref=e91] [cursor=pointer]:
+            - img [ref=e92]
+        - generic [ref=e95]:
+          - generic [ref=e96]: 1:15
+          - generic [ref=e97]: 4:20
+        - generic [ref=e100]:
+          - button [ref=e101] [cursor=pointer]:
+            - img [ref=e102]
+          - slider [ref=e106] [cursor=pointer]: "80"
+    - generic [ref=e108]:
+      - img "User Avatar" [ref=e111]
+      - generic [ref=e112]:
+        - paragraph [ref=e113]: admin123
+        - paragraph [ref=e114]: Connected
+  - generic [ref=e118]:
+    - navigation [ref=e119]:
+      - generic [ref=e121]:
+        - link "Notifications" [ref=e123] [cursor=pointer]:
+          - /url: /notifications
+          - text: Notifications
+          - button [ref=e124]:
+            - img [ref=e125]
+        - button [ref=e129] [cursor=pointer]:
+          - img [ref=e130]
+        - img "User Avatar" [ref=e138]
+        - button "Log out" [ref=e139] [cursor=pointer]:
+          - text: Log out
+          - img [ref=e140]
+    - main [ref=e143]:
+      - generic [ref=e145]:
+        - generic [ref=e146]:
+          - heading "Your Friends" [level=2] [ref=e147]
+          - link "Friend Requests" [ref=e148] [cursor=pointer]:
+            - /url: /notifications
+            - img [ref=e149]
+            - text: Friend Requests
+        - generic [ref=e154]:
+          - heading "No friends yet" [level=3] [ref=e155]
+          - paragraph [ref=e156]: Connect with language partners below to start practicing together!
+        - generic [ref=e157]:
+          - generic [ref=e160]:
+            - heading "Meet New Learners" [level=2] [ref=e161]
+            - paragraph [ref=e162]: Discover perfect language exchange partners based on your profile
+          - generic [ref=e165]:
+            - generic [ref=e166]:
+              - img "admin321" [ref=e168]
+              - heading "admin321" [level=3] [ref=e170]
+            - generic [ref=e171]:
+              - generic [ref=e172]: "Native: ?"
+              - generic [ref=e173]: "Learning: ?"
+            - button "Send Friend Request" [ref=e174] [cursor=pointer]:
+              - img [ref=e175]
+              - text: Send Friend Request
