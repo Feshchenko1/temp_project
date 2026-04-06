@@ -1,164 +1,197 @@
-import { useState } from "react";
-import { Search, Plus, Filter, Music2, FileText, Download, Eye } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useScoreStore } from "../store/useScoreStore";
+import { useAuthStore } from "../store/useAuthStore";
+import { 
+  Search, 
+  Plus, 
+  Filter, 
+  Music2, 
+  Loader2, 
+  Library, 
+  Heart, 
+  LayoutGrid,
+  SearchX
+} from "lucide-react";
 import Select from "react-select";
+import ScoreCard from "../components/ScoreCard";
+import UploadScoreModal from "../components/UploadScoreModal";
 
 const ScoreLibraryPage = () => {
+  const { scores, getScores, isLoading, availableTags } = useScoreStore();
+  const { authUser } = useAuthStore();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  // Mock tags for initial UI - will be fetched from DB in Step 3
-  const tagOptions = [
-    { value: "piano", label: "Piano", color: "#3B82F6" },
-    { value: "jazz", label: "Jazz", color: "#8B5CF6" },
-    { value: "classical", label: "Classical", color: "#10B981" },
-    { value: "advanced", label: "Advanced", color: "#EF4444" },
-    { value: "theory", label: "Theory", color: "#F59E0B" },
-    { value: "vocals", label: "Vocals", color: "#EC4899" },
-    { value: "intermediate", label: "Intermediate", color: "#6366F1" },
-    { value: "beginner", label: "Beginner", color: "#14B8A6" },
-  ];
+  // Debounced fetch
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      getScores({
+        search: searchQuery,
+        tag: selectedTags.map(t => t.value).join(","),
+        favoritesOnly: showFavoritesOnly
+      });
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, selectedTags, showFavoritesOnly]);
+
+  const tagOptions = availableTags.map(tag => ({ value: tag, label: tag }));
 
   const customSelectStyles = {
     control: (base) => ({
       ...base,
-      backgroundColor: "rgba(31, 41, 55, 0.5)",
-      borderColor: "rgba(75, 85, 99, 0.3)",
-      borderRadius: "0.5rem",
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      borderColor: "rgba(255, 255, 255, 0.1)",
+      borderRadius: "12px",
       padding: "2px",
       boxShadow: "none",
-      "&:hover": {
-        borderColor: "rgba(59, 130, 246, 0.5)",
-      },
-      backdropFilter: "blur(8px)",
+      "&:hover": { borderColor: "rgba(59, 130, 246, 0.3)" },
+      backdropFilter: "blur(10px)",
+      color: "white"
     }),
     menu: (base) => ({
       ...base,
-      backgroundColor: "#1f2937",
-      borderRadius: "0.5rem",
+      backgroundColor: "#111",
+      border: "1px solid rgba(255, 255, 255, 0.1)",
+      borderRadius: "12px",
       zIndex: 50,
     }),
     option: (base, state) => ({
       ...base,
       backgroundColor: state.isFocused ? "rgba(59, 130, 246, 0.1)" : "transparent",
-      color: state.isFocused ? "#3B82F6" : "#e5e7eb",
-      "&:active": {
-        backgroundColor: "rgba(59, 130, 246, 0.2)",
-      },
+      color: state.isFocused ? "#3B82F6" : "#9ca3af",
+      "&:active": { backgroundColor: "rgba(59, 130, 246, 0.2)" },
     }),
     multiValue: (base) => ({
       ...base,
-      backgroundColor: "rgba(59, 130, 246, 0.2)",
-      borderRadius: "4px",
+      backgroundColor: "rgba(59, 130, 246, 0.15)",
+      borderRadius: "6px",
     }),
     multiValueLabel: (base) => ({
       ...base,
-      color: "#3B82F6",
-      fontWeight: "500",
+      color: "#60a5fa",
+      fontWeight: "600",
+      fontSize: "11px"
     }),
     multiValueRemove: (base) => ({
       ...base,
-      color: "#3B82F6",
-      "&:hover": {
-        backgroundColor: "rgba(59, 130, 246, 0.3)",
-        color: "#2563EB",
-      },
+      color: "#60a5fa",
+      "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.2)", color: "white" },
     }),
+    input: (base) => ({ ...base, color: "white" }),
+    placeholder: (base) => ({ ...base, color: "#4b5563" })
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-base-200/40 p-8 rounded-3xl backdrop-blur-xl border border-white/5 shadow-2xl">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-black tracking-tight text-white flex items-center gap-3">
-            <Music2 className="size-10 text-primary animate-pulse" />
-            Score Library
-          </h1>
-          <p className="text-base-content/60 font-medium max-w-md">
-            Your personal digital music stand. Store, preview, and organize your sheet music collections in the cloud.
-          </p>
-        </div>
-        <button className="btn btn-primary gap-2 rounded-2xl px-8 h-14 text-lg font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all hover:scale-105 active:scale-95">
-          <Plus className="size-6" />
-          Share Score
-        </button>
-      </div>
-
-      {/* Filter Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center bg-base-200/40 p-4 rounded-2xl backdrop-blur-lg border border-white/5 shadow-xl">
-        <div className="lg:col-span-4 relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-base-content/40 group-focus-within:text-primary transition-colors" />
-          <input
-            type="text"
-            placeholder="Search titles, composers..."
-            className="input input-bordered w-full pl-12 bg-base-300/50 border-white/5 focus:border-primary/50 focus:outline-none transition-all rounded-xl"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="lg:col-span-7">
-          <Select
-            isMulti
-            options={tagOptions}
-            styles={customSelectStyles}
-            placeholder="Filter by tags..."
-            className="react-select-container"
-            classNamePrefix="react-select"
-            value={selectedTags}
-            onChange={setSelectedTags}
-          />
-        </div>
-        <div className="lg:col-span-1 flex justify-center">
-          <button className="btn btn-ghost btn-square rounded-xl hover:bg-primary/10 hover:text-primary transition-all">
-            <Filter className="size-6" />
+    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
+      {/* Header with Visual Impact */}
+      <div className="relative group p-8 md:p-12 rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl bg-gradient-to-br from-blue-600/10 via-transparent to-purple-600/5">
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-10"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold tracking-widest uppercase">
+              <Library size={14} /> Collective Knowledge
+            </div>
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white flex items-center gap-4">
+              <Music2 className="size-12 md:size-16 text-blue-500 animate-[pulse_3s_infinite]" />
+              Score Library
+            </h1>
+            <p className="text-gray-400 text-lg font-medium max-w-xl leading-relaxed">
+              The platform's unified vault for sheet music. Off-loaded to the cloud, 
+              shared by the community, optimized for the <span className="text-white font-bold">Studio Dark</span> experience.
+            </p>
+          </div>
+          <button 
+            onClick={() => setIsUploadModalOpen(true)}
+            className="group/btn relative inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black text-lg transition-all hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] active:scale-95"
+          >
+            <Plus className="size-6 transition-transform group-hover/btn:rotate-90" />
+            Upload Score
           </button>
         </div>
       </div>
 
-      {/* Scores Grid (Empty State for now) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-        {/* Mock Card for Design Verification */}
-        <div className="group relative bg-base-200/50 rounded-3xl overflow-hidden border border-white/5 hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5">
-          {/* Skeleton/Preview Area */}
-          <div className="aspect-[3/4] bg-base-300/50 flex items-center justify-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-base-900/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
-            <FileText className="size-20 text-base-content/10 group-hover:scale-110 transition-transform duration-700" />
-            
-            {/* Hover Actions */}
-            <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 z-20">
-              <button className="btn btn-primary rounded-xl px-6 gap-2 font-bold shadow-xl">
-                <Eye className="size-5" />
-                View
-              </button>
-              <button className="btn btn-secondary rounded-xl btn-square shadow-xl">
-                <Download className="size-5" />
-              </button>
-            </div>
-          </div>
+      {/* Control Bar: Search & Filters */}
+      <div className="sticky top-4 z-40 flex flex-col lg:flex-row items-center gap-4 bg-black/40 p-4 rounded-2xl backdrop-blur-2xl border border-white/10 shadow-2xl">
+        <div className="w-full lg:w-1/3 relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
+          <input
+            type="text"
+            placeholder="Search by title or artist..."
+            className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/5 focus:border-blue-500/40 focus:bg-white/[0.06] focus:outline-none transition-all rounded-xl text-white font-medium"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
-          {/* Card Content */}
-          <div className="p-6 space-y-4 relative z-10 backdrop-blur-md bg-white/[0.02]">
-            <div className="space-y-1">
-              <h3 className="text-xl font-bold text-white truncate">Chopin - Nocturne Op. 9 No. 2</h3>
-              <p className="text-sm text-base-content/50 font-medium">Frédéric Chopin</p>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <span className="badge badge-sm border-blue-500/30 bg-blue-500/10 text-blue-400 font-bold px-3 py-2.5 rounded-lg">Piano</span>
-              <span className="badge badge-sm border-purple-500/30 bg-purple-500/10 text-purple-400 font-bold px-3 py-2.5 rounded-lg">Classical</span>
-              <span className="badge badge-sm border-orange-500/30 bg-orange-500/10 text-orange-400 font-bold px-3 py-2.5 rounded-lg">Advanced</span>
-            </div>
+        <div className="w-full lg:flex-1">
+          <Select
+            isMulti
+            options={tagOptions}
+            styles={customSelectStyles}
+            placeholder="Filter by instrument, genre, or level..."
+            value={selectedTags}
+            onChange={setSelectedTags}
+          />
+        </div>
 
-            <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-black">HB</div>
-                <span className="text-xs font-semibold text-base-content/40 leading-none">Shared by <br/><span className="text-base-content/80">Hans Bill</span></span>
-              </div>
-              <span className="text-xs font-mono text-base-content/30 italic">12 pages • 4.2 MB</span>
-            </div>
+        <div className="w-full lg:w-auto flex items-center gap-2 border-l border-white/10 pl-2">
+          <button 
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            className={`flex-1 lg:flex-none btn btn-ghost gap-2 rounded-xl px-5 transition-all ${
+              showFavoritesOnly ? "bg-red-500/10 text-red-500 border-red-500/30" : "text-gray-400 hover:bg-white/5"
+            }`}
+          >
+            <Heart size={20} fill={showFavoritesOnly ? "currentColor" : "none"} />
+            <span className="font-bold">Favorites</span>
+          </button>
+          <div className="hidden lg:block w-px h-8 bg-white/10 mx-2"></div>
+          <div className="p-2 text-blue-500 bg-blue-500/10 rounded-xl">
+            <LayoutGrid size={24} />
           </div>
         </div>
       </div>
+
+      {/* Main Grid Section */}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-24 space-y-4">
+          <Loader2 className="size-12 text-blue-500 animate-spin" />
+          <p className="text-gray-500 font-bold tracking-widest uppercase text-xs">Curating your library...</p>
+        </div>
+      ) : scores.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-12">
+          {scores.map((score) => (
+            <ScoreCard key={score.id} score={score} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-32 space-y-6 text-center bg-white/[0.01] rounded-[3rem] border border-dashed border-white/10">
+          <div className="p-6 bg-white/[0.03] rounded-full">
+            <SearchX size={64} className="text-gray-600" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-2xl font-bold text-white">No scores found</h3>
+            <p className="text-gray-500 max-w-sm">
+              We couldn't find any sheet music matching your criteria. Try adjusting your filters or upload a new masterpiece.
+            </p>
+          </div>
+          <button 
+            onClick={() => { setSearchQuery(""); setSelectedTags([]); setShowFavoritesOnly(false); }}
+            className="text-blue-400 font-bold hover:underline"
+          >
+            Clear all filters
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
+      <UploadScoreModal 
+        isOpen={isUploadModalOpen} 
+        onClose={() => setIsUploadModalOpen(false)} 
+      />
     </div>
   );
 };
