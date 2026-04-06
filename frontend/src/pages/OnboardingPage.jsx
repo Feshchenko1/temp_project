@@ -2,10 +2,9 @@ import { useState, useRef } from "react";
 import useAuthUser from "../hooks/useAuthUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { completeOnboarding } from "../lib/api";
+import { completeOnboarding, uploadFileDirectly } from "../lib/api";
 import { LoaderIcon, MapPinIcon, UploadCloudIcon, ShuffleIcon, UserIcon } from "lucide-react";
 import Select from "react-select";
-import axios from "axios";
 
 // Constants for select options (Replace with real taxonomy later)
 const INSTRUMENT_OPTIONS = [
@@ -130,24 +129,8 @@ const OnboardingPage = () => {
 
     setIsUploading(true);
     try {
-      // 1. Ask backend for Pre-signed URL via our Axios utility
-      // We assume /api/upload/presigned-url returns { presignedUrl, fileUrl }
-      const res = await axios.post(`/api/upload/presigned-url`, {
-        filename: file.name,
-        fileType: file.type
-      }, { withCredentials: true });
-
-      const { presignedUrl, fileUrl } = res.data;
-
-      // 2. Direct PUT specifically to the AWS/Cloudflare Bucket
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
+      const fileUrl = await uploadFileDirectly(file);
+      
       // 3. Keep the file URL in formState
       setFormState({ ...formState, profilePic: fileUrl });
       toast.success("Avatar successfully uploaded.");

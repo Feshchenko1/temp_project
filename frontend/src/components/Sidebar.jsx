@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
-import { BellIcon, LayoutDashboard, HeadphonesIcon, UsersIcon } from "lucide-react";
+import { BellIcon, LayoutDashboard, HeadphonesIcon, UsersIcon, FileMusic } from "lucide-react";
 import GlobalMusicPlayer from "./GlobalMusicPlayer";
 
 const Sidebar = () => {
@@ -31,13 +31,23 @@ const Sidebar = () => {
         </Link>
 
         <Link
-          to="/"
+          to="/collaborators"
           className={`btn btn-ghost justify-start w-full gap-3 px-4 font-medium transition-colors ${
-            currentPath === "/" ? "bg-primary/10 text-primary" : "hover:bg-base-200"
+            currentPath === "/collaborators" ? "bg-primary/10 text-primary" : "hover:bg-base-200"
           }`}
         >
           <UsersIcon className="size-5" />
           <span>Collaborators</span>
+        </Link>
+
+        <Link
+          to="/scores"
+          className={`btn btn-ghost justify-start w-full gap-3 px-4 font-medium transition-colors ${
+            currentPath === "/scores" ? "bg-primary/10 text-primary" : "hover:bg-base-200"
+          }`}
+        >
+          <FileMusic className="size-5" />
+          <span>Score Library</span>
         </Link>
 
         <Link

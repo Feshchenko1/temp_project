@@ -7,6 +7,7 @@ import NotificationsPage from "./pages/NotificationsPage.jsx";
 import CallPage from "./pages/CallPage.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
+import ScoreLibraryPage from "./pages/ScoreLibraryPage.jsx";
 
 import { Toaster } from "react-hot-toast";
 
@@ -15,12 +16,37 @@ import useAuthUser from "./hooks/useAuthUser.js";
 import Layout from "./components/Layout.jsx";
 import { useThemeStore } from "./store/useThemeStore.js";
 
+import { useEffect } from "react";
+import { useNotificationStore } from "./store/useNotificationStore.js";
+import { connectSocket, disconnectSocket } from "./lib/socketClient.js";
+
 const App = () => {
   const { isLoading, authUser } = useAuthUser();
   const { theme } = useThemeStore();
+  const incrementUnread = useNotificationStore((state) => state.incrementUnread);
 
   const isAuthenticated = Boolean(authUser);
   const isOnboarded = authUser?.isOnboarded;
+
+  useEffect(() => {
+    if (authUser) {
+      const socket = connectSocket();
+      
+      const handleNotification = (data) => {
+        if (data.type === "friend_request") {
+          incrementUnread();
+        }
+      };
+
+      socket.on("new_notification", handleNotification);
+
+      return () => {
+        socket.off("new_notification", handleNotification);
+      };
+    } else {
+      disconnectSocket();
+    }
+  }, [authUser, incrementUnread]);
 
   if (isLoading) return <PageLoader />;
 
@@ -57,6 +83,18 @@ const App = () => {
             isAuthenticated && isOnboarded ? (
               <Layout showSidebar={true}>
                 <NotificationsPage />
+              </Layout>
+            ) : (
+              <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />
+            )
+          }
+        />
+        <Route
+          path="/scores"
+          element={
+            isAuthenticated && isOnboarded ? (
+              <Layout showSidebar={true}>
+                <ScoreLibraryPage />
               </Layout>
             ) : (
               <Navigate to={!isAuthenticated ? "/login" : "/onboarding"} />

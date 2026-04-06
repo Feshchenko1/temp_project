@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Video, Mic, MicOff, VideoOff, PhoneOff, Download, CloudUpload, Maximize } from "lucide-react";
 import { connectSocket } from "../lib/socketClient";
 import toast from "react-hot-toast";
 
-const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, isInitiator, onEndCall, onAddMessage }) => {
+const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, onEndCall, onAddMessage }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const screenStreamRef = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreensharing, setIsScreensharing] = useState(false);
@@ -20,137 +19,6 @@ const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, isInitiator, on
   const socket = useRef(null);
   const peerConnection = useRef(null);
   const localStream = useRef(null);
-  const remoteStreamRef = useRef(null);
-  const isNegotiating = useRef(false);
-
-  // BUG 2 FIX: Use useCallback and ensure media initialization is awaitable
-  const handleStopRecording = useCallback(() => {
-    setIsRecording(false);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-
-    setTimeout(async () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const TWO_GB = 2 * 1024 * 1024 * 1024;
-
-      if (blob.size < TWO_GB) {
-        try {
-          const file = new File([blob], `Session_${Date.now()}.webm`, { type: "video/webm" });
-          const { fileUrl, originalName } = await import("../lib/api").then(m => m.uploadFileDirectly(file));
-
-          const messagePayload = {
-            chatId,
-            text: "🎬 Collaboration session recorded.",
-            fileUrl,
-            fileName: originalName
-          };
-
-          socket.current.emit("send_message", messagePayload);
-
-          if (onAddMessage) {
-            onAddMessage({
-              id: Date.now(),
-              sender: currentUserId,
-              ...messagePayload
-            });
-          }
-        } catch (err) {
-          console.error("Auto-upload failed. Fallback to local.", err);
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.style.display = "none";
-        a.href = url;
-        a.download = `Harmonix_Collaboration_${Date.now()}.webm`;
-        document.body.appendChild(a);
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    }, 500);
-  }, [chatId, currentUserId, onAddMessage]);
-
-  const setupMediaRecorder = useCallback((stream) => {
-    const options = { mimeType: "video/webm; codecs=vp9" };
-    try {
-      mediaRecorderRef.current = new MediaRecorder(stream, options);
-    } catch {
-      mediaRecorderRef.current = new MediaRecorder(stream);
-    }
-
-    mediaRecorderRef.current.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        chunksRef.current.push(event.data);
-        const currentSize = chunksRef.current.reduce((acc, chunk) => acc + chunk.size, 0);
-        setRecordedSize(currentSize);
-
-        const TWO_GB = 2 * 1024 * 1024 * 1024;
-        if (currentSize > TWO_GB) {
-          console.warn("Edge Constraint Hit: 2GB buffer exceeded. Forcing local download fallback.");
-          handleStopRecording(); 
-        }
-      }
-    };
-  }, [handleStopRecording]);
-
-  const startMedia = useCallback(async () => {
-    if (localStream.current) return localStream.current;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      localStream.current = stream;
-      
-      // Strict layout enforcement: ensure local stream is pinned to local ref
-      syncVideoStreams();
-
-      setupMediaRecorder(stream);
-      
-      if (peerConnection.current && stream) {
-        stream.getTracks().forEach((track) => {
-          const senders = peerConnection.current.getSenders();
-          if (!senders.some(s => s.track === track)) {
-            peerConnection.current.addTrack(track, stream);
-          }
-        });
-      }
-      return stream;
-    } catch (err) {
-      toast.error("Could not access camera/mic.");
-      console.error("Failed to access media devices", err);
-      return null;
-    }
-  }, [setupMediaRecorder]);
-
-  /**
-   * ATOMIC STREAM SYNC
-   * Centralized method to ensure local and remote streams are assigned 
-   * ONLY to their correct containers.
-   */
-  const syncVideoStreams = useCallback(() => {
-    // 1. Sync Local Video (Regular or Screen Share)
-    const currentLocalStream = isScreensharing ? screenStreamRef.current : localStream.current;
-    if (localVideoRef.current && currentLocalStream) {
-      if (localVideoRef.current.srcObject !== currentLocalStream) {
-        console.log("Syncing Local Video Stream...");
-        localVideoRef.current.srcObject = currentLocalStream;
-      }
-    }
-
-    // 2. Sync Remote Video
-    if (remoteVideoRef.current && remoteStreamRef.current) {
-      if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
-        console.log("Syncing Remote Video Stream...");
-        remoteVideoRef.current.srcObject = remoteStreamRef.current;
-      }
-    }
-  }, [isScreensharing]);
-
-  // Perpetually ensure streams are pinned correctly (robust against race conditions)
-  useEffect(() => {
-    syncVideoStreams();
-    const interval = setInterval(syncVideoStreams, 2000); // Check every 2s as a fallback
-    return () => clearInterval(interval);
-  }, [syncVideoStreams]);
 
   useEffect(() => {
     socket.current = connectSocket();
@@ -159,62 +27,59 @@ const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, isInitiator, on
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     };
 
-    peerConnection.current = new RTCPeerConnection(configuration);
-
-    // BUG 3: isNegotiating guard to prevent SDP collisions
-    peerConnection.current.onnegotiationneeded = async () => {
+    const startMedia = async () => {
       try {
-        if (isNegotiating.current || peerConnection.current.signalingState !== "stable") return;
-        isNegotiating.current = true;
-        const offer = await peerConnection.current.createOffer();
-        await peerConnection.current.setLocalDescription(offer);
-        socket.current.emit("webrtc-offer", {
-          targetUserId,
-          offer: peerConnection.current.localDescription,
-          chatId
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        localStream.current = stream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+        setupMediaRecorder(stream);
+        initializePeerConnection(stream);
       } catch (err) {
-        console.error("Negotiation error:", err);
+        toast.error("Could not access camera/mic.");
+        console.error("Failed to access media devices", err);
       }
     };
 
-    peerConnection.current.onsignalingstatechange = () => {
-      if (peerConnection.current && peerConnection.current.signalingState === "stable") {
-        isNegotiating.current = false;
-      }
+    const initializePeerConnection = (stream) => {
+      peerConnection.current = new RTCPeerConnection(configuration);
+
+      stream.getTracks().forEach((track) => {
+        peerConnection.current.addTrack(track, stream);
+      });
+
+      peerConnection.current.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      peerConnection.current.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.current.emit("webrtc-ice-candidate", {
+            targetUserId,
+            candidate: event.candidate,
+            chatId
+          });
+        }
+      };
+
+      // Create offer if we are the initiator (this is logic simplifies to: if we join and wait)
+      // For now, let's observe the signaling flow
     };
 
-    peerConnection.current.ontrack = (event) => {
-      console.log("New Track Received from Peer");
-      if (event.streams && event.streams[0]) {
-        remoteStreamRef.current = event.streams[0];
-        syncVideoStreams();
-      }
-    };
-
-    peerConnection.current.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.current.emit("webrtc-ice-candidate", {
-          targetUserId,
-          candidate: event.candidate,
-          chatId
-        });
-      }
-    };
+    startMedia();
 
     // Signaling Listeners
     socket.current.on("webrtc-offer", async (data) => {
       if (data.fromUserId !== targetUserId) return;
       try {
-        // BUG 2 Fix: Await local media before processing offer to fix asymmetric "ghosting"
-        await startMedia();
-
         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.offer));
         const answer = await peerConnection.current.createAnswer();
         await peerConnection.current.setLocalDescription(answer);
         socket.current.emit("webrtc-answer", {
           targetUserId: data.fromUserId,
-          answer: peerConnection.current.localDescription,
+          answer,
           chatId
         });
       } catch (err) {
@@ -240,47 +105,44 @@ const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, isInitiator, on
       }
     });
 
-    // Start local media automatically
-    startMedia();
+    // Auto-initiate offer if we are starting the call
+    const initiateOffer = async () => {
+      if (!peerConnection.current) return;
+      try {
+        const offer = await peerConnection.current.createOffer();
+        await peerConnection.current.setLocalDescription(offer);
+        socket.current.emit("webrtc-offer", {
+          targetUserId,
+          offer,
+          chatId
+        });
+      } catch (err) {
+        console.error("Error initiating WebRTC offer", err);
+      }
+    };
+
+    // Give some time for media to stabilize
+    setTimeout(initiateOffer, 1500);
 
     return () => {
       if (localStream.current) {
         localStream.current.getTracks().forEach((track) => track.stop());
       }
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
       if (peerConnection.current) {
         peerConnection.current.close();
-        peerConnection.current = null;
       }
       socket.current?.off("webrtc-offer");
       socket.current?.off("webrtc-answer");
       socket.current?.off("webrtc-ice-candidate");
     };
-  }, [isInitiator, chatId, targetUserId, startMedia]);
+  }, []);
 
-  const handleStartRecording = useCallback(() => {
-    chunksRef.current = [];
-    setRecordedSize(0);
-    setIsRecording(true);
-
-    const remoteStream = remoteVideoRef.current?.srcObject;
-    const localStreamObj = localStream.current;
-
-    const recordTracks = [
-      ...(remoteStream?.getVideoTracks() || []),
-      ...(remoteStream?.getAudioTracks() || []),
-      ...(localStreamObj?.getAudioTracks() || [])
-    ];
-
-    const mixedStream = new MediaStream(recordTracks);
-
+  const setupMediaRecorder = (stream) => {
     const options = { mimeType: "video/webm; codecs=vp9" };
     try {
-      mediaRecorderRef.current = new MediaRecorder(mixedStream, options);
-    } catch {
-      mediaRecorderRef.current = new MediaRecorder(mixedStream);
+      mediaRecorderRef.current = new MediaRecorder(stream, options);
+    } catch (e) {
+      mediaRecorderRef.current = new MediaRecorder(stream);
     }
 
     mediaRecorderRef.current.ondataavailable = (event) => {
@@ -288,42 +150,104 @@ const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, isInitiator, on
         chunksRef.current.push(event.data);
         const currentSize = chunksRef.current.reduce((acc, chunk) => acc + chunk.size, 0);
         setRecordedSize(currentSize);
+
+        // 2GB Constraint Check
+        const TWO_GB = 2 * 1024 * 1024 * 1024;
+        if (currentSize > TWO_GB) {
+          console.warn("Edge Constraint Hit: 2GB buffer exceeded. Forcing local download fallback.");
+          handleStopRecording(); // the stop handler evaluates size natively
+        }
       }
     };
+  };
 
-    mediaRecorderRef.current.start(1000);
-  }, []);
+  const handleStartRecording = () => {
+    chunksRef.current = [];
+    setRecordedSize(0);
+    setIsRecording(true);
+    mediaRecorderRef.current.start(1000); // chunk every second
+  };
+
+  const handleStopRecording = () => {
+    setIsRecording(false);
+    if (mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+
+    setTimeout(async () => {
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const TWO_GB = 2 * 1024 * 1024 * 1024;
+
+      if (blob.size < TWO_GB) {
+        // PRO FEATURE: Direct Cloud Bypass for Session Recordings
+        try {
+          const file = new File([blob], `Session_${Date.now()}.webm`, { type: "video/webm" });
+          const { fileUrl, originalName } = await import("../lib/api").then(m => m.uploadFileDirectly(file));
+
+          const messagePayload = {
+            chatId,
+            text: "🎬 Collaboration session recorded.",
+            fileUrl,
+            fileName: originalName
+          };
+
+          // Emit to chat room so peers see the recording instantly
+          socket.current.emit("send_message", messagePayload);
+
+          // Update local state so User A (sender) also sees it
+          if (onAddMessage) {
+            onAddMessage({
+              id: Date.now(),
+              sender: currentUserId,
+              ...messagePayload
+            });
+          }
+
+          console.log("Session recording uploaded successfully:", fileUrl);
+        } catch (err) {
+          console.error("Auto-upload failed. Fallback to local.", err);
+        }
+      } else {
+        // Option B: Raspberry Pi safety fallback (Direct browser hard drive dump)
+        console.log("Blob > 2GB: Hardware constraint triggered, forcing local download.");
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = `Harmonix_Collaboration_${Date.now()}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }, 500);
+  };
 
   const toggleScreenshare = async () => {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      screenStreamRef.current = screenStream;
       const screenTrack = screenStream.getVideoTracks()[0];
 
-      if (peerConnection.current && peerConnection.current.signalingState !== 'closed') {
-        const sender = peerConnection.current.getSenders().find(s => s.track?.kind === "video");
+      if (peerConnection.current) {
+        const sender = peerConnection.current.getSenders().find(s => s.track.kind === "video");
         if (sender) sender.replaceTrack(screenTrack);
       }
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = screenStream;
-        syncVideoStreams();
       }
 
       setIsScreensharing(true);
 
       screenTrack.onended = () => {
         setIsScreensharing(false);
-        screenStreamRef.current = null;
         navigator.mediaDevices.getUserMedia({ video: true }).then(camStream => {
           const camTrack = camStream.getVideoTracks()[0];
-          if (peerConnection.current && peerConnection.current.signalingState !== 'closed') {
-            const sender = peerConnection.current.getSenders().find(s => s.track?.kind === "video");
+          if (peerConnection.current) {
+            const sender = peerConnection.current.getSenders().find(s => s.track.kind === "video");
             if (sender) sender.replaceTrack(camTrack);
           }
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = camStream;
-            syncVideoStreams();
           }
         });
       };
@@ -385,7 +309,7 @@ const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, isInitiator, on
             ref={localVideoRef}
             autoPlay
             playsInline
-            muted={true}
+            muted
             className={`w-full h-full ${isScreensharing ? "object-contain" : "object-cover transform -scale-x-100"}`}
           />
           <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 text-xs rounded shadow backdrop-blur-sm text-white">
@@ -400,7 +324,7 @@ const VideoCallOverlay = ({ chatId, currentUserId, targetUserId, isInitiator, on
         </div>
 
         <div className="bg-base-300 rounded-2xl flex items-center justify-center border border-white/10 shadow-2xl overflow-hidden relative group">
-          <video ref={remoteVideoRef} autoPlay playsInline muted={false} className="w-full h-full object-cover" />
+          <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
           <div className="absolute inset-0 flex flex-col items-center justify-center opacity-50 -z-10">
             <span className="loading loading-ring loading-lg text-primary"></span>
             <p className="mt-4 font-mono text-sm">Awaiting Peer Connection...</p>

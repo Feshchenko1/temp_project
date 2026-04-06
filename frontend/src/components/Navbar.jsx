@@ -4,10 +4,13 @@ import { BellIcon, LogOutIcon, HeadphonesIcon } from "lucide-react";
 import ThemeSelector from "./ThemeSelector";
 import useLogout from "../hooks/useLogout";
 
+import { useNotificationStore } from "../store/useNotificationStore";
+
 const Navbar = () => {
   const { authUser } = useAuthUser();
   const location = useLocation();
   const isChatPage = location.pathname?.startsWith("/chat");
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
 
   const { logoutMutation } = useLogout();
 
@@ -29,8 +32,13 @@ const Navbar = () => {
 
           <div className="flex items-center gap-3 sm:gap-4 ml-auto">
             <Link to={"/notifications"} className="tooltip tooltip-bottom hidden sm:flex" data-tip="Notifications">
-              <button className="btn btn-ghost btn-circle">
+              <button className="btn btn-ghost btn-circle relative">
                 <BellIcon className="size-5 text-base-content" />
+                {unreadCount > 0 && (
+                  <span className="badge badge-sm badge-error absolute -top-1 -right-1 text-white border-2 border-base-200">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
             </Link>
           </div>

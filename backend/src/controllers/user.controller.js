@@ -1,4 +1,5 @@
 import { prisma } from "../lib/db.js";
+import { getIo } from "../lib/socket.js";
 
 export async function getRecommendedUsers(req, res) {
   try {
@@ -92,6 +93,18 @@ export async function sendFriendRequest(req, res) {
         recipientId: recipientId,
       },
     });
+
+    try {
+      const io = getIo();
+      if (io) {
+        io.to(`user_${recipientId}`).emit("new_notification", {
+          type: "friend_request",
+          requestId: friendRequest.id
+        });
+      }
+    } catch (err) {
+      console.error("Socket error on friend request", err);
+    }
 
     res.status(201).json(friendRequest);
   } catch (error) {

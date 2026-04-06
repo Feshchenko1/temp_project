@@ -19,12 +19,14 @@ export async function getPresignedUrl(req, res) {
 
     const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
-    const bucketUrl = process.env.AWS_PUBLIC_URL || `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com`;
+    // Use R2 Public URL for direct read access if configured, else fallback to endpoint
+    const bucketUrl = process.env.R2_PUBLIC_URL || process.env.AWS_PUBLIC_URL || `${process.env.AWS_ENDPOINT}/${process.env.AWS_BUCKET_NAME}`;
     const fileUrl = `${bucketUrl}/${key}`;
 
     res.status(200).json({
       presignedUrl,
       fileUrl,
+      originalName: filename
     });
   } catch (error) {
     console.error("Error generating presigned URL:", error);

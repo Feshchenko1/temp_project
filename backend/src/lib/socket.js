@@ -46,10 +46,18 @@ export const initializeSocket = (server) => {
       socket.leave(`chat_${chatId}`);
     });
 
+    socket.on("send_message", (data) => {
+      socket.to(`chat_${data.chatId}`).emit("receive_message", {
+        ...data,
+        senderId: socket.userId
+      });
+    });
+
     // 2. WebRTC Peer-to-Peer Signaling (Video/Audio Calls)
     // The server blindly routes this encrypted/metadata payload.
     // It NEVER parses the media.
     socket.on("webrtc-offer", ({ targetUserId, offer, chatId }) => {
+      console.log(`[RTC] Offer from ${socket.userId} to ${targetUserId} (Chat: ${chatId})`);
       io.to(`user_${targetUserId}`).emit("webrtc-offer", {
         fromUserId: socket.userId,
         offer,
@@ -58,6 +66,7 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("webrtc-answer", ({ targetUserId, answer, chatId }) => {
+      console.log(`[RTC] Answer from ${socket.userId} to ${targetUserId} (Chat: ${chatId})`);
       io.to(`user_${targetUserId}`).emit("webrtc-answer", {
         fromUserId: socket.userId,
         answer,
@@ -69,6 +78,25 @@ export const initializeSocket = (server) => {
       io.to(`user_${targetUserId}`).emit("webrtc-ice-candidate", {
         fromUserId: socket.userId,
         candidate,
+        chatId
+      });
+    });
+
+    // 3. Formal Call Signaling (Modal support)
+    socket.on("call:initiate", ({ targetUserId, chatId, callerName }) => {
+      console.log(`[CALL] Initiation from ${socket.userId} to ${targetUserId} (Chat: ${chatId})`);
+      io.to(`user_${targetUserId}`).emit("call:incoming", {
+        fromUserId: socket.userId,
+        callerName,
+        chatId
+      });
+    });
+
+    socket.on("call:response", ({ targetUserId, accepted, chatId }) => {
+      console.log(`[CALL] Response from ${socket.userId} to ${targetUserId} (Accepted: ${accepted})`);
+      io.to(`user_${targetUserId}`).emit("call:response", {
+        fromUserId: socket.userId,
+        accepted,
         chatId
       });
     });

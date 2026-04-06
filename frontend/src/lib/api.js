@@ -60,6 +60,51 @@ export async function acceptFriendRequest(requestId) {
 }
 
 export async function getStreamToken() {
-  const response = await axiosInstance.get("/chat/token");
+  const response = await axiosInstance.get("/chats/token");
+  return response.data;
+}
+
+/**
+ * Direct-to-Cloud Upload Utility
+ * 1. Fetches a pre-signed URL from our backend
+ * 2. Executes a PUT directly to S3/R2 (Bypassing Nginx 2MB limits)
+ */
+export async function uploadFileDirectly(file) {
+  if (!file) throw new Error("No file provided");
+
+  // Step 1: Get Pre-signed URL
+  const res = await axiosInstance.post("/upload/presigned-url", {
+    filename: file.name,
+    fileType: file.type
+  });
+
+  const { presignedUrl, fileUrl } = res.data;
+
+  // Step 2: PUT the raw file directly to the Cloud provider
+  const uploadRes = await fetch(presignedUrl, {
+    method: "PUT",
+    body: file,
+    headers: {
+      "Content-Type": file.type
+    }
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error(`Cloud upload failed: ${uploadRes.statusText}`);
+  }
+
+  return { 
+    fileUrl, 
+    originalName: res.data.originalName || file.name 
+  };
+}
+
+export async function getChatDetails(chatId) {
+  const response = await axiosInstance.get(`/chats/${chatId}`);
+  return response.data;
+}
+
+export async function getOrCreateChatByUserId(targetUserId) {
+  const response = await axiosInstance.get(`/chats/direct/${targetUserId}`);
   return response.data;
 }
