@@ -1,0 +1,209 @@
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { s3Client } from "../lib/s3.js";
+import { prisma } from "../lib/db.js";
+import crypto from "crypto";
+
+export const getPresignedUrlForScore = async (req, res) => {
+  try {
+    const { filename, fileType } = req.body;
+    
+    if (!fileType.includes("pdf")) {
+      return res.status(400).json({ message: "Only PDF files are allowed for scores." });
+    }
+
+    const uniqueId = crypto.randomUUID();
+    const key = `scores/${uniqueId}-${filename}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME || "harmonix-bucket",
+      Key: key,
+      ContentType: fileType,
+    });
+
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const bucketUrl = process.env.R2_PUBLIC_URL || process.env.AWS_PUBLIC_URL || `${process.env.AWS_ENDPOINT}/${process.env.AWS_BUCKET_NAME}`;
+    const fileUrl = `${bucketUrl}/${key}`;
+
+    res.status(200).json({ presignedUrl, fileUrl, key });
+  } catch (error) {
+    console.error("Error in getPresignedUrlForScore:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const createScore = async (req, res) => {
+  try {
+    const { title, artist, fileUrl, fileSize, pagesCount, tags } = req.body;
+    const userId = req.user.id;
+
+    const score = await prisma.score.create({
+      data: {
+        title,
+        artist,
+        fileUrl,
+        fileSize,
+        pagesCount,
+        userId,
+        tags: {
+          create: tags?.map(tagName => ({
+            tag: {
+              connectOrCreate: {
+                where: { name: tagName },
+                create: { name: tagName }
+              }
+            }
+          })) || []
+        }
+      },
+      include: {
+        tags: { include: { tag: true } }
+      }
+    });
+
+    res.status(201).json(score);
+  } catch (error) {
+    console.error("Error in createScore:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getScores = async (req, res) => {
+  try {
+    const { search, tag, userId, favoritesOnly } = req.query;
+    const currentUserId = req.user.id;
+
+    const where = {};
+    
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { artist: { contains: search, mode: "insensitive" } }
+      ];
+    }
+
+    if (tag) {
+      where.tags = { some: { tag: { name: tag } } };
+    }
+
+    if (userId) {
+      where.userId = userId;
+    }
+
+    if (favoritesOnly === "true") {
+      where.favoritedBy = { some: { userId: currentUserId } };
+    }
+
+    const scores = await prisma.score.findMany({
+      where,
+      include: {
+        user: { select: { fullName: true, profilePic: true } },
+        tags: { include: { tag: true } },
+        favoritedBy: {
+          where: { userId: currentUserId }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    // Format for frontend
+    const formattedScores = scores.map(score => ({
+      ...score,
+      isFavorite: score.favoritedBy.length > 0,
+      tags: score.tags.map(t => t.tag.name)
+    }));
+
+    res.status(200).json(formattedScores);
+  } catch (error) {
+    console.error("Error in getScores:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const updateScore = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, artist, tags } = req.body;
+    const userId = req.user.id;
+
+    const existingScore = await prisma.score.findUnique({ where: { id } });
+    if (!existingScore || existingScore.userId !== userId) {
+      return res.status(403).json({ message: "Unauthorized to update this score" });
+    }
+
+    const updatedScore = await prisma.score.update({
+      where: { id },
+      data: {
+        title,
+        artist,
+        tags: tags ? {
+          deleteMany: {},
+          create: tags.map(tagName => ({
+            tag: {
+              connectOrCreate: {
+                where: { name: tagName },
+                create: { name: tagName }
+              }
+            }
+          }))
+        } : undefined
+      },
+      include: {
+        tags: { include: { tag: true } }
+      }
+    });
+
+    res.status(200).json(updatedScore);
+  } catch (error) {
+    console.error("Error in updateScore:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const deleteScore = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const existingScore = await prisma.score.findUnique({ where: { id } });
+    if (!existingScore || existingScore.userId !== userId) {
+      return res.status(403).json({ message: "Unauthorized to delete this score" });
+    }
+
+    await prisma.score.delete({ where: { id } });
+    res.status(200).json({ message: "Score deleted successfully" });
+  } catch (error) {
+    console.error("Error in deleteScore:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const toggleFavorite = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const existingFavorite = await prisma.favoriteScore.findUnique({
+      where: {
+        userId_scoreId: { userId, scoreId: id }
+      }
+    });
+
+    if (existingFavorite) {
+      await prisma.favoriteScore.delete({
+        where: {
+          userId_scoreId: { userId, scoreId: id }
+        }
+      });
+      return res.status(200).json({ message: "Removed from favorites", isFavorite: false });
+    } else {
+      await prisma.favoriteScore.create({
+        data: { userId, scoreId: id }
+      });
+      return res.status(200).json({ message: "Added to favorites", isFavorite: true });
+    }
+  } catch (error) {
+    console.error("Error in toggleFavorite:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};

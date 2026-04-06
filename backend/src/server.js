@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.route.js";
 import userRoutes from "./routes/user.route.js";
 import uploadRoutes from "./routes/upload.route.js";
 import chatRoutes from "./routes/chat.route.js";
+import scoreRoutes from "./routes/score.route.js";
 
 import { connectDB } from "./lib/db.js";
 
@@ -37,6 +38,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/chats", chatRoutes);
+app.use("/api/scores", scoreRoutes);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../frontend/dist")));

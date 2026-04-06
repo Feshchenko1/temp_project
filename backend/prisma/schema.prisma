@@ -37,6 +37,9 @@ model User {
   
   sentGroupKeys    GroupKey[]      @relation("GroupKeySender")
   receivedGroupKeys GroupKey[]     @relation("GroupKeyRecipient")
+
+  scores           Score[]         @relation("UserScores")
+  favoriteScores   FavoriteScore[] @relation("UserFavorites")
 }
 
 model FriendRequest {
@@ -92,6 +95,46 @@ model Track {
   artist    String
   fileUrl   String
   createdAt DateTime @default(now())
+}
+
+model Score {
+  id          String   @id @default(uuid())
+  title       String
+  artist      String?
+  fileUrl     String
+  fileSize    Int?
+  pagesCount  Int?
+  userId      String
+  user        User     @relation("UserScores", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  tags        ScoreTagMapping[]
+  favoritedBy FavoriteScore[]
+}
+
+model ScoreTag {
+  id    String @id @default(uuid())
+  name  String @unique
+  scores ScoreTagMapping[]
+}
+
+model ScoreTagMapping {
+  scoreId String
+  tagId   String
+  score   Score    @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  tag     ScoreTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([scoreId, tagId])
+}
+
+model FavoriteScore {
+  userId  String
+  scoreId String
+  user    User  @relation("UserFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  score   Score @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  
+  @@id([userId, scoreId])
 }
 
 model GroupKey {
