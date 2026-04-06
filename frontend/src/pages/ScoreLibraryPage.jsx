@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useScoreStore } from "../store/useScoreStore";
-import { useAuthStore } from "../store/useAuthStore";
+import useAuthUser from "../hooks/useAuthUser";
 import { 
   Search, 
   Plus, 
@@ -18,7 +18,7 @@ import UploadScoreModal from "../components/UploadScoreModal";
 
 const ScoreLibraryPage = () => {
   const { scores, getScores, isLoading, availableTags } = useScoreStore();
-  const { authUser } = useAuthStore();
+  const { authUser } = useAuthUser();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);

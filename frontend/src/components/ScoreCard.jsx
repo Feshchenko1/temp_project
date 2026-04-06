@@ -1,6 +1,6 @@
 import React from "react";
 import { useScoreStore } from "../store/useScoreStore";
-import { useAuthStore } from "../store/useAuthStore";
+import useAuthUser from "../hooks/useAuthUser";
 import { 
   Heart, 
   Download, 
@@ -15,7 +15,7 @@ import { format } from "date-fns";
 
 const ScoreCard = ({ score }) => {
   const { toggleFavorite, deleteScore } = useScoreStore();
-  const { authUser } = useAuthStore();
+  const { authUser } = useAuthUser();
   
   const isOwner = score.userId === authUser?.id;
 
