@@ -9,9 +9,9 @@ import {
   User, 
   Music, 
   Calendar,
-  FileText
 } from "lucide-react";
 import { format } from "date-fns";
+import PdfPreview from "./PdfPreview";
 
 const ScoreCard = ({ score }) => {
   const { toggleFavorite, deleteScore } = useScoreStore();
@@ -57,9 +57,10 @@ const ScoreCard = ({ score }) => {
         </button>
       </div>
 
-      {/* Decorative Music Symbol or Icon */}
-      <div className="flex-1 flex items-center justify-center p-6 mb-4 bg-white/[0.02] rounded-xl border border-white/5 group-hover:bg-blue-500/[0.03] transition-colors relative overflow-hidden">
-        <FileText size={48} className="text-gray-600/30 group-hover:text-blue-500/20 group-hover:scale-110 transition-transform duration-500" />
+      {/* Decorative Music Symbol or Icon / Real Preview */}
+      <div className="flex-1 flex items-center justify-center p-6 mb-4 bg-white/[0.02] rounded-xl border border-white/5 group-hover:bg-blue-500/[0.03] transition-colors relative overflow-hidden min-h-[280px]">
+        <PdfPreview fileUrl={score.fileUrl} className="absolute inset-0" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
            <button onClick={handleView} className="p-2 bg-black/80 text-white rounded-lg hover:bg-blue-600 transition-colors tooltip tooltip-bottom" data-tip="Open PDF">
              <ExternalLink size={16} />
