@@ -132,9 +132,7 @@ const OnboardingPage = () => {
     try {
       // 1. Ask backend for Pre-signed URL via our Axios utility
       // We assume /api/upload/presigned-url returns { presignedUrl, fileUrl }
-      const backendUrl = import.meta.env.MODE === "development" ? "http://localhost:5001" : "";
-      
-      const res = await axios.post(`${backendUrl}/api/upload/presigned-url`, {
+      const res = await axios.post(`/api/upload/presigned-url`, {
         filename: file.name,
         fileType: file.type
       }, { withCredentials: true });
