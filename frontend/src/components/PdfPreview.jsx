@@ -3,8 +3,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { Music, AlertCircle, Loader2 } from 'lucide-react';
 
 // Import CSS for proper rendering
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 // Fix for Vite: Use a real URL for the worker source
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
