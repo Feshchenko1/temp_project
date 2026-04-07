@@ -240,6 +240,8 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
               onChange={setSelectedTags}
               placeholder="Select tags..."
               menuPortalTarget={document.body}
+              menuPosition="fixed"
+              maxMenuHeight={220}
               className="mt-1"
             />
           </div>
