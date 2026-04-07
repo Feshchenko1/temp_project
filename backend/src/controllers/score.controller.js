@@ -141,13 +141,16 @@ export const updateScore = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized to update this score" });
     }
 
+    // 1. Delete all existing tags for this score
+    await prisma.scoreTag.deleteMany({ where: { scoreId: id } });
+
+    // 2. Update the score and create new tags if provided
     const updatedScore = await prisma.score.update({
       where: { id },
       data: {
         title,
         artist,
         tags: tags ? {
-          deleteMany: {},
           create: tags.map(tagName => ({
             tag: {
               connectOrCreate: {
@@ -159,11 +162,25 @@ export const updateScore = async (req, res) => {
         } : undefined
       },
       include: {
-        tags: { include: { tag: true } }
+        user: { select: { fullName: true, profilePic: true } },
+        tags: { include: { tag: true } },
+        _count: {
+          select: { favoritedBy: true }
+        },
+        favoritedBy: {
+          where: { userId }
+        }
       }
     });
 
-    res.status(200).json(updatedScore);
+    // 3. Format for frontend
+    const formattedScore = {
+      ...updatedScore,
+      isFavorite: updatedScore.favoritedBy.length > 0,
+      tags: updatedScore.tags.map(t => t.tag.name)
+    };
+
+    res.status(200).json(formattedScore);
   } catch (error) {
     console.error("Error in updateScore:", error);
     res.status(500).json({ message: "Internal Server Error" });

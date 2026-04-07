@@ -14,7 +14,7 @@ const PdfPreview = ({ fileUrl, className, onLoadSuccess }) => {
   const [error, setError] = useState(false);
 
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden h-full w-full bg-white/[0.02] ${className}`}>
+    <div className={`relative flex items-center justify-center overflow-hidden h-full w-full bg-base-200/20 ${className}`}>
       {!error ? (
         <Document
           file={fileUrl}
@@ -25,8 +25,8 @@ const PdfPreview = ({ fileUrl, className, onLoadSuccess }) => {
           onLoadError={() => setError(true)}
           loading={
             <div className="flex flex-col items-center gap-2 animate-pulse">
-              <Loader2 className="animate-spin text-blue-500/40" size={24} />
-              <span className="text-[10px] text-gray-600 font-black uppercase tracking-widest">Loading...</span>
+              <Loader2 className="animate-spin text-primary/40" size={24} />
+              <span className="text-[10px] text-base-content/40 font-black uppercase tracking-widest">Loading...</span>
             </div>
           }
           error={
@@ -41,19 +41,19 @@ const PdfPreview = ({ fileUrl, className, onLoadSuccess }) => {
             width={240}
             renderTextLayer={false} 
             renderAnnotationLayer={false}
-            className="shadow-2xl transition-all duration-700 group-hover:scale-105"
+            className="shadow-2xl transition-all duration-700 group-hover:scale-105 border border-base-300 rounded-sm"
           />
         </Document>
       ) : (
-        <div className="flex flex-col items-center gap-3 text-gray-600/20 group-hover:text-blue-500/20 transition-colors">
+        <div className="flex flex-col items-center gap-3 text-base-content/10 group-hover:text-primary/20 transition-colors">
           <Music size={64} strokeWidth={1} />
           <span className="text-[10px] uppercase font-black tracking-[0.2em]">Sheet Music Preview</span>
         </div>
       )}
 
       {/* Page count or fallback tag */}
-      <div className="absolute bottom-3 right-3 px-2 py-0.5 bg-black/60 backdrop-blur-md rounded border border-white/10 text-[9px] font-mono text-white/40 opacity-0 group-hover:opacity-100 transition-opacity">
-        {numPages ? `${numPages} PAGES` : "PDF"}
+      <div className="absolute bottom-3 right-3 px-2 py-0.5 bg-base-100/60 backdrop-blur-md rounded border border-base-300 text-[9px] font-mono text-base-content/40 opacity-0 group-hover:opacity-100 transition-opacity">
+        {numPages ? `${numPages} PGS` : "PDF"}
       </div>
     </div>
   );

@@ -13,8 +13,9 @@ import {
 import { format } from "date-fns";
 import PdfPreview from "./PdfPreview";
 import { useState } from "react";
+import { Pencil } from "lucide-react";
 
-const ScoreCard = ({ score }) => {
+const ScoreCard = ({ score, onEdit }) => {
   const { toggleFavorite, deleteScore } = useScoreStore();
   const { authUser } = useAuthUser();
   const [detectedPages, setDetectedPages] = useState(null);
@@ -36,15 +37,15 @@ const ScoreCard = ({ score }) => {
   };
 
   return (
-    <div className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-blue-500/30 rounded-2xl p-5 transition-all duration-300 backdrop-blur-md flex flex-col h-full shadow-xl hover:shadow-blue-500/5">
+    <div className="group relative bg-base-200/50 hover:bg-base-200 border border-base-300 hover:border-primary/30 rounded-[2rem] p-5 transition-all duration-500 backdrop-blur-md flex flex-col h-full shadow-xl hover:shadow-primary/5">
       {/* Header with Title & Artist */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1 min-w-0 pr-4">
-          <h3 className="text-lg font-bold text-white truncate group-hover:text-blue-400 transition-colors">
+          <h3 className="text-lg font-black text-base-content truncate group-hover:text-primary transition-colors">
             {score.title}
           </h3>
-          <p className="text-sm text-gray-400 truncate flex items-center gap-2">
-            <Music size={14} className="text-gray-500" />
+          <p className="text-sm text-base-content/60 truncate flex items-center gap-2 font-medium">
+            <Music size={14} className="text-primary/40" />
             {score.artist || "Unknown Composer"}
           </p>
         </div>
@@ -56,8 +57,8 @@ const ScoreCard = ({ score }) => {
             onClick={() => toggleFavorite(score.id)}
             className={`p-2 rounded-xl transition-all ${
               score.isFavorite 
-                ? "bg-red-500/20 text-red-500 scale-110 shadow-lg shadow-red-500/20" 
-                : "bg-white/5 text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                ? "bg-error/20 text-error scale-110 shadow-lg shadow-error/20" 
+                : "bg-base-300/50 text-base-content/40 hover:text-error hover:bg-error/10"
             }`}
           >
             <Heart size={18} fill={score.isFavorite ? "currentColor" : "none"} />
@@ -73,17 +74,22 @@ const ScoreCard = ({ score }) => {
           onLoadSuccess={(pages) => setDetectedPages(pages)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-           <button onClick={handleView} className="p-2 bg-black/80 text-white rounded-lg hover:bg-blue-600 transition-colors tooltip tooltip-bottom" data-tip="Open PDF">
+        <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+           <button onClick={handleView} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-primary transition-all" aria-label="Open PDF">
              <ExternalLink size={16} />
            </button>
-           <button onClick={handleDownload} className="p-2 bg-black/80 text-white rounded-lg hover:bg-green-600 transition-colors tooltip tooltip-bottom" data-tip="Download">
+           <button onClick={handleDownload} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-success transition-all" aria-label="Download">
              <Download size={16} />
            </button>
            {isOwner && (
-             <button onClick={() => deleteScore(score.id)} className="p-2 bg-black/80 text-white rounded-lg hover:bg-red-600 transition-colors tooltip tooltip-bottom" data-tip="Delete">
-               <Trash2 size={16} />
-             </button>
+             <>
+               <button onClick={() => onEdit(score)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-info transition-all" aria-label="Edit">
+                 <Pencil size={16} />
+               </button>
+               <button onClick={() => deleteScore(score.id)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-error transition-all" aria-label="Delete">
+                 <Trash2 size={16} />
+               </button>
+             </>
            )}
         </div>
       </div>
@@ -94,7 +100,7 @@ const ScoreCard = ({ score }) => {
           {score.tags?.map((tag, idx) => (
             <span 
               key={idx} 
-              className="px-2.5 py-1 bg-white/[0.05] border border-white/10 rounded-full text-[10px] font-bold text-gray-300 uppercase tracking-wider hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400 transition-all cursor-default"
+              className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black text-primary uppercase tracking-widest hover:bg-primary hover:text-primary-content transition-all cursor-default"
             >
               {typeof tag === "string" ? tag : tag.tag?.name}
             </span>
@@ -107,9 +113,9 @@ const ScoreCard = ({ score }) => {
       )}
 
       {/* Footer Info */}
-      <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-500 font-medium">
+      <div className="mt-auto pt-4 border-t border-base-300 flex items-center justify-between text-[11px] text-base-content/50 font-bold tracking-tight">
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10 ring-1 ring-white/10">
+          <div className="w-6 h-6 rounded-full overflow-hidden bg-base-300 ring-2 ring-base-100 shadow-sm">
             {score.user?.profilePic ? (
               <img src={score.user.profilePic} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -120,10 +126,10 @@ const ScoreCard = ({ score }) => {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
-            <span className="text-blue-500/60 font-black">{score.pagesCount || detectedPages || "?"}</span>
-            <span className="opacity-40">PAGES</span>
+            <span className="text-primary font-black">{score.pagesCount || detectedPages || "?"}</span>
+            <span className="opacity-60 text-[9px]">PGS</span>
           </div>
-          <div className="w-px h-3 bg-white/10"></div>
+          <div className="w-px h-3 bg-base-300"></div>
           <div className="flex items-center gap-1.5 min-w-[70px] justify-end">
             <Calendar size={12} className="opacity-40" />
             {format(new Date(score.createdAt), "MMM d, yyyy")}

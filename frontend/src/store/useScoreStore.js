@@ -75,4 +75,21 @@ export const useScoreStore = create((set, get) => ({
       return null;
     }
   },
+
+  updateScore: async (scoreId, scoreData) => {
+    set({ isUploading: true });
+    try {
+      const response = await axiosInstance.patch(`/scores/${scoreId}`, scoreData);
+      set((state) => ({
+        scores: state.scores.map((s) => (s.id === scoreId ? response.data : s)),
+        isUploading: false,
+      }));
+      toast.success("Score updated successfully!");
+      return response.data;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update score");
+      set({ isUploading: false });
+      return null;
+    }
+  },
 }));

@@ -29,6 +29,10 @@ const App = () => {
   const isOnboarded = authUser?.isOnboarded;
 
   useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
     if (authUser) {
       const socket = connectSocket();
       
@@ -51,7 +55,7 @@ const App = () => {
   if (isLoading) return <PageLoader />;
 
   return (
-    <div className="h-screen" data-theme={theme}>
+    <div className="min-h-screen flex flex-col">
       <Routes>
         <Route
           path="/"

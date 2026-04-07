@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Select from "react-select";
 import ScoreCard from "../components/ScoreCard";
-import UploadScoreModal from "../components/UploadScoreModal";
+import ScoreFormModal from "../components/ScoreFormModal";
 
 const ScoreLibraryPage = () => {
   const { scores, getScores, isLoading, availableTags } = useScoreStore();
@@ -23,7 +23,8 @@ const ScoreLibraryPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingScore, setEditingScore] = useState(null);
 
   // Debounced fetch
   useEffect(() => {
@@ -43,70 +44,79 @@ const ScoreLibraryPage = () => {
   const customSelectStyles = {
     control: (base) => ({
       ...base,
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
-      borderColor: "rgba(255, 255, 255, 0.1)",
-      borderRadius: "12px",
-      padding: "2px",
+      backgroundColor: "var(--fallback-b1,oklch(var(--b1)/0.1))",
+      borderColor: "var(--fallback-b3,oklch(var(--b3)/0.5))",
+      borderRadius: "16px",
+      padding: "4px",
       boxShadow: "none",
-      "&:hover": { borderColor: "rgba(59, 130, 246, 0.3)" },
+      "&:hover": { borderColor: "var(--fallback-p,oklch(var(--p)/0.3))" },
       backdropFilter: "blur(10px)",
-      color: "white"
+      color: "var(--fallback-bc,oklch(var(--bc)))"
     }),
     menu: (base) => ({
       ...base,
-      backgroundColor: "#111",
-      border: "1px solid rgba(255, 255, 255, 0.1)",
-      borderRadius: "12px",
+      backgroundColor: "var(--fallback-b1,oklch(var(--b1)))",
+      border: "1px solid var(--fallback-b3,oklch(var(--b3)))",
+      borderRadius: "16px",
       zIndex: 50,
     }),
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isFocused ? "rgba(59, 130, 246, 0.1)" : "transparent",
-      color: state.isFocused ? "#3B82F6" : "#9ca3af",
-      "&:active": { backgroundColor: "rgba(59, 130, 246, 0.2)" },
+      backgroundColor: state.isFocused ? "var(--fallback-p,oklch(var(--p)/0.1))" : "transparent",
+      color: state.isFocused ? "var(--fallback-p,oklch(var(--p)))" : "var(--fallback-bc,oklch(var(--bc)))",
     }),
     multiValue: (base) => ({
       ...base,
-      backgroundColor: "rgba(59, 130, 246, 0.15)",
-      borderRadius: "6px",
+      backgroundColor: "var(--fallback-p,oklch(var(--p)/0.1))",
+      borderRadius: "8px",
     }),
     multiValueLabel: (base) => ({
       ...base,
-      color: "#60a5fa",
-      fontWeight: "600",
+      color: "var(--fallback-p,oklch(var(--p)))",
+      fontWeight: "800",
       fontSize: "11px"
     }),
     multiValueRemove: (base) => ({
       ...base,
-      color: "#60a5fa",
-      "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.2)", color: "white" },
+      color: "var(--fallback-p,oklch(var(--p)))",
+      "&:hover": { backgroundColor: "var(--fallback-er,oklch(var(--er)/0.1))" },
     }),
-    input: (base) => ({ ...base, color: "white" }),
-    placeholder: (base) => ({ ...base, color: "#4b5563" })
+    input: (base) => ({ ...base, color: "var(--fallback-bc,oklch(var(--bc)))" }),
+    placeholder: (base) => ({ ...base, color: "var(--fallback-bc,oklch(var(--bc)/0.4))" })
+  };
+
+  const handleEdit = (score) => {
+    setEditingScore(score);
+    setIsModalOpen(true);
+  };
+
+  const handleCreate = () => {
+    setEditingScore(null);
+    setIsModalOpen(true);
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
+    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-1000 bg-base-100">
       {/* Header with Visual Impact */}
-      <div className="relative group p-8 md:p-12 rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl bg-gradient-to-br from-blue-600/10 via-transparent to-purple-600/5">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-10"></div>
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold tracking-widest uppercase">
+      <div className="relative group p-10 md:p-16 rounded-[3rem] overflow-hidden border border-base-300 shadow-2xl bg-gradient-to-br from-primary/10 via-base-100 to-secondary/5">
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-5"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-10">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest uppercase">
               <Library size={14} /> Collective Knowledge
             </div>
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white flex items-center gap-4">
-              <Music2 className="size-12 md:size-16 text-blue-500 animate-[pulse_3s_infinite]" />
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-base-content flex items-center gap-6">
+              <Music2 className="size-14 md:size-20 text-primary animate-[pulse_4s_infinite]" />
               Score Library
             </h1>
-            <p className="text-gray-400 text-lg font-medium max-w-xl leading-relaxed">
+            <p className="text-base-content/60 text-xl font-medium max-w-xl leading-relaxed">
               The platform's unified vault for sheet music. Off-loaded to the cloud, 
-              shared by the community, optimized for the <span className="text-white font-bold">Studio Dark</span> experience.
+              shared by the community, optimized for the <span className="text-base-content font-black">Studio Experience</span>.
             </p>
           </div>
           <button 
-            onClick={() => setIsUploadModalOpen(true)}
-            className="group/btn relative inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black text-lg transition-all hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] active:scale-95"
+            onClick={handleCreate}
+            className="btn btn-primary btn-lg rounded-[2rem] px-10 font-black shadow-xl shadow-primary/20 group/btn transition-all hover:scale-105 active:scale-95"
           >
             <Plus className="size-6 transition-transform group-hover/btn:rotate-90" />
             Upload Score
@@ -115,13 +125,13 @@ const ScoreLibraryPage = () => {
       </div>
 
       {/* Control Bar: Search & Filters */}
-      <div className="sticky top-4 z-40 flex flex-col lg:flex-row items-center gap-4 bg-black/40 p-4 rounded-2xl backdrop-blur-2xl border border-white/10 shadow-2xl">
+      <div className="sticky top-6 z-40 flex flex-col lg:flex-row items-center gap-6 bg-base-100/60 p-5 rounded-[2.5rem] backdrop-blur-3xl border border-base-300 shadow-2xl">
         <div className="w-full lg:w-1/3 relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-6 text-base-content/30 group-focus-within:text-primary transition-colors" />
           <input
             type="text"
             placeholder="Search by title or artist..."
-            className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/5 focus:border-blue-500/40 focus:bg-white/[0.06] focus:outline-none transition-all rounded-xl text-white font-medium"
+            className="input input-lg input-bordered w-full pl-14 pr-6 bg-base-200/50 border-base-300 focus:border-primary/40 focus:bg-base-100 transition-all rounded-2xl text-base-content font-bold placeholder:text-base-content/30"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -138,19 +148,19 @@ const ScoreLibraryPage = () => {
           />
         </div>
 
-        <div className="w-full lg:w-auto flex items-center gap-2 border-l border-white/10 pl-2">
+        <div className="w-full lg:w-auto flex items-center gap-3 border-l border-base-300 pl-4">
           <button 
             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`flex-1 lg:flex-none btn btn-ghost gap-2 rounded-xl px-5 transition-all ${
-              showFavoritesOnly ? "bg-red-500/10 text-red-500 border-red-500/30" : "text-gray-400 hover:bg-white/5"
+            className={`btn btn-ghost btn-lg gap-3 rounded-2xl px-6 transition-all ${
+              showFavoritesOnly ? "bg-error/10 text-error border-error/20" : "text-base-content/50 hover:bg-base-200"
             }`}
           >
-            <Heart size={20} fill={showFavoritesOnly ? "currentColor" : "none"} />
-            <span className="font-bold">Favorites</span>
+            <Heart size={22} fill={showFavoritesOnly ? "currentColor" : "none"} />
+            <span className="font-black uppercase tracking-widest text-xs">Favorites</span>
           </button>
-          <div className="hidden lg:block w-px h-8 bg-white/10 mx-2"></div>
-          <div className="p-2 text-blue-500 bg-blue-500/10 rounded-xl">
-            <LayoutGrid size={24} />
+          <div className="hidden lg:block w-px h-10 bg-base-300 mx-2"></div>
+          <div className="p-3 text-primary bg-primary/10 rounded-2xl shadow-inner">
+            <LayoutGrid size={28} />
           </div>
         </div>
       </div>
@@ -162,25 +172,25 @@ const ScoreLibraryPage = () => {
           <p className="text-gray-500 font-bold tracking-widest uppercase text-xs">Curating your library...</p>
         </div>
       ) : scores.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-20">
           {scores.map((score) => (
-            <ScoreCard key={score.id} score={score} />
+            <ScoreCard key={score.id} score={score} onEdit={handleEdit} />
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-32 space-y-6 text-center bg-white/[0.01] rounded-[3rem] border border-dashed border-white/10">
-          <div className="p-6 bg-white/[0.03] rounded-full">
-            <SearchX size={64} className="text-gray-600" />
+        <div className="flex flex-col items-center justify-center py-40 space-y-8 text-center bg-base-200/50 rounded-[4rem] border border-dashed border-base-300 mx-4">
+          <div className="p-8 bg-base-100 rounded-full shadow-inner ring-1 ring-base-300">
+            <SearchX size={80} className="text-base-content/20" />
           </div>
-          <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-white">No scores found</h3>
-            <p className="text-gray-500 max-w-sm">
+          <div className="space-y-3">
+            <h3 className="text-3xl font-black text-base-content">No scores found</h3>
+            <p className="text-base-content/50 max-w-sm font-medium">
               We couldn't find any sheet music matching your criteria. Try adjusting your filters or upload a new masterpiece.
             </p>
           </div>
           <button 
             onClick={() => { setSearchQuery(""); setSelectedTags([]); setShowFavoritesOnly(false); }}
-            className="text-blue-400 font-bold hover:underline"
+            className="btn btn-link no-underline text-primary font-black uppercase tracking-widest text-xs hover:text-primary-focus transition-all"
           >
             Clear all filters
           </button>
@@ -188,9 +198,10 @@ const ScoreLibraryPage = () => {
       )}
 
       {/* Modals */}
-      <UploadScoreModal 
-        isOpen={isUploadModalOpen} 
-        onClose={() => setIsUploadModalOpen(false)} 
+      <ScoreFormModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        scoreToEdit={editingScore}
       />
     </div>
   );
