@@ -12,12 +12,15 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import PdfPreview from "./PdfPreview";
+import { useState } from "react";
 
 const ScoreCard = ({ score }) => {
   const { toggleFavorite, deleteScore } = useScoreStore();
   const { authUser } = useAuthUser();
+  const [detectedPages, setDetectedPages] = useState(null);
   
   const isOwner = score.userId === authUser?.id;
+  const favoritesCount = score._count?.favoritedBy || 0;
 
   const handleDownload = () => {
     const link = document.createElement("a");
@@ -45,21 +48,30 @@ const ScoreCard = ({ score }) => {
             {score.artist || "Unknown Composer"}
           </p>
         </div>
-        <button 
-          onClick={() => toggleFavorite(score.id)}
-          className={`p-2 rounded-xl transition-all ${
-            score.isFavorite 
-              ? "bg-red-500/20 text-red-500 scale-110 shadow-lg shadow-red-500/20" 
-              : "bg-white/5 text-gray-500 hover:text-red-400 hover:bg-red-500/10"
-          }`}
-        >
-          <Heart size={18} fill={score.isFavorite ? "currentColor" : "none"} />
-        </button>
+        <div className="flex items-center gap-2">
+          {favoritesCount > 0 && (
+            <span className="text-xs font-bold text-red-500/80">{favoritesCount}</span>
+          )}
+          <button 
+            onClick={() => toggleFavorite(score.id)}
+            className={`p-2 rounded-xl transition-all ${
+              score.isFavorite 
+                ? "bg-red-500/20 text-red-500 scale-110 shadow-lg shadow-red-500/20" 
+                : "bg-white/5 text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+            }`}
+          >
+            <Heart size={18} fill={score.isFavorite ? "currentColor" : "none"} />
+          </button>
+        </div>
       </div>
 
       {/* Decorative Music Symbol or Icon / Real Preview */}
       <div className="flex-1 flex items-center justify-center p-6 mb-4 bg-white/[0.02] rounded-xl border border-white/5 group-hover:bg-blue-500/[0.03] transition-colors relative overflow-hidden min-h-[280px]">
-        <PdfPreview fileUrl={score.fileUrl} className="absolute inset-0" />
+        <PdfPreview 
+          fileUrl={score.fileUrl} 
+          className="absolute inset-0" 
+          onLoadSuccess={(pages) => setDetectedPages(pages)}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
            <button onClick={handleView} className="p-2 bg-black/80 text-white rounded-lg hover:bg-blue-600 transition-colors tooltip tooltip-bottom" data-tip="Open PDF">
@@ -77,16 +89,22 @@ const ScoreCard = ({ score }) => {
       </div>
 
       {/* Tags Section */}
-      <div className="flex flex-wrap gap-2 mb-4 h-[60px] overflow-hidden content-start">
-        {score.tags?.map((tag, idx) => (
-          <span 
-            key={idx} 
-            className="px-2.5 py-1 bg-white/[0.05] border border-white/10 rounded-full text-[10px] font-bold text-gray-300 uppercase tracking-wider hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400 transition-all cursor-default"
-          >
-            {tag}
-          </span>
-        ))}
-      </div>
+      {score.tags && score.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-2 mb-4 h-[60px] overflow-hidden content-start">
+          {score.tags?.map((tag, idx) => (
+            <span 
+              key={idx} 
+              className="px-2.5 py-1 bg-white/[0.05] border border-white/10 rounded-full text-[10px] font-bold text-gray-300 uppercase tracking-wider hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400 transition-all cursor-default"
+            >
+              {typeof tag === "string" ? tag : tag.tag?.name}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="h-[60px] flex items-center text-gray-600 italic text-[10px] uppercase tracking-widest px-1">
+          No Tags Defined
+        </div>
+      )}
 
       {/* Footer Info */}
       <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-500 font-medium">
@@ -100,9 +118,16 @@ const ScoreCard = ({ score }) => {
           </div>
           <span className="truncate max-w-[80px]">{score.user?.fullName}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Calendar size={12} />
-          {format(new Date(score.createdAt), "MMM d, yyyy")}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <span className="text-blue-500/60 font-black">{score.pagesCount || detectedPages || "?"}</span>
+            <span className="opacity-40">PAGES</span>
+          </div>
+          <div className="w-px h-3 bg-white/10"></div>
+          <div className="flex items-center gap-1.5 min-w-[70px] justify-end">
+            <Calendar size={12} className="opacity-40" />
+            {format(new Date(score.createdAt), "MMM d, yyyy")}
+          </div>
         </div>
       </div>
     </div>

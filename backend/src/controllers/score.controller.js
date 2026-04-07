@@ -83,7 +83,14 @@ export const getScores = async (req, res) => {
     }
 
     if (tag) {
-      where.tags = { some: { tag: { name: tag } } };
+      const tagNames = tag.split(",");
+      where.tags = { 
+        some: { 
+          tag: { 
+            name: { in: tagNames } 
+          } 
+        } 
+      };
     }
 
     if (userId) {
@@ -99,6 +106,9 @@ export const getScores = async (req, res) => {
       include: {
         user: { select: { fullName: true, profilePic: true } },
         tags: { include: { tag: true } },
+        _count: {
+          select: { favoritedBy: true }
+        },
         favoritedBy: {
           where: { userId: currentUserId }
         }

@@ -6,13 +6,10 @@ import { Music, AlertCircle, Loader2 } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Fix for Vite: Use a real URL for the worker source
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+// Use CDN for worker to avoid local resolution issues
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-const PdfPreview = ({ fileUrl, className }) => {
+const PdfPreview = ({ fileUrl, className, onLoadSuccess }) => {
   const [numPages, setNumPages] = useState(null);
   const [error, setError] = useState(false);
 
@@ -21,7 +18,10 @@ const PdfPreview = ({ fileUrl, className }) => {
       {!error ? (
         <Document
           file={fileUrl}
-          onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+          onLoadSuccess={({ numPages }) => {
+            setNumPages(numPages);
+            if (onLoadSuccess) onLoadSuccess(numPages);
+          }}
           onLoadError={() => setError(true)}
           loading={
             <div className="flex flex-col items-center gap-2 animate-pulse">
