@@ -9,27 +9,48 @@ import {
   User, 
   Music, 
   Calendar,
+  Pencil,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import PdfPreview from "./PdfPreview";
 import { useState } from "react";
-import { Pencil } from "lucide-react";
 
 const ScoreCard = ({ score, onEdit }) => {
   const { toggleFavorite, deleteScore } = useScoreStore();
   const { authUser } = useAuthUser();
   const [detectedPages, setDetectedPages] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const isOwner = score.userId === authUser?.id;
   const favoritesCount = score._count?.favoritedBy || 0;
 
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = score.fileUrl;
-    link.download = `${score.title}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async () => {
+    if (isDownloading) return;
+    
+    try {
+      setIsDownloading(true);
+      const response = await fetch(score.fileUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = url;
+      // Sanitize filename: replace spaces with underscores and remove problematic characters
+      const sanitizedTitle = score.title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "");
+      link.download = `${sanitizedTitle || "score"}.pdf`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Cleanup
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download failed:", error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleView = () => {
@@ -78,8 +99,17 @@ const ScoreCard = ({ score, onEdit }) => {
            <button onClick={handleView} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-primary transition-all" aria-label="Open PDF">
              <ExternalLink size={16} />
            </button>
-           <button onClick={handleDownload} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-success transition-all" aria-label="Download">
-             <Download size={16} />
+           <button 
+             onClick={handleDownload} 
+             disabled={isDownloading}
+             className={`btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-success transition-all ${isDownloading ? "cursor-not-allowed opacity-70" : ""}`} 
+             aria-label="Download"
+           >
+             {isDownloading ? (
+               <Loader2 size={16} className="animate-spin text-success" />
+             ) : (
+               <Download size={16} />
+             )}
            </button>
            {isOwner && (
              <>
