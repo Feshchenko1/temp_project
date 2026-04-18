@@ -3,11 +3,17 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export async function signup(req, res) {
-  const { email, password, fullName } = req.body;
+  const { email, password, fullName, publicKey, encryptedPrivateKey, cryptoSalt } = req.body;
 
   try {
     if (!email || !password || !fullName) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "Identity fields (email, password, fullName) are required" });
+    }
+
+    if (!publicKey || !encryptedPrivateKey || !cryptoSalt) {
+      return res.status(400).json({ 
+        message: "Cryptographic identity missing. Registration rejected for E2EE compliance." 
+      });
     }
 
     if (password.length < 6) {
@@ -36,6 +42,9 @@ export async function signup(req, res) {
         fullName,
         password: hashedPassword,
         profilePic: randomAvatar,
+        publicKey,
+        encryptedPrivateKey,
+        cryptoSalt,
       },
     });
 
@@ -122,6 +131,33 @@ export async function onboard(req, res) {
     res.status(200).json({ success: true, user: updatedUser });
   } catch (error) {
     console.error("Onboarding error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function updatePublicKey(req, res) {
+  try {
+    const userId = req.user.id;
+    const { publicKey } = req.body;
+
+    if (!publicKey) {
+      return res.status(400).json({ message: "Public key is required" });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { publicKey },
+    });
+
+    try {
+      getIo().emit("user_key_updated", { userId, publicKey });
+    } catch (err) {
+      console.error("Socket error on public key update", err);
+    }
+
+    res.status(200).json({ success: true, user: updatedUser });
+  } catch (error) {
+    console.error("Error in updatePublicKey controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

@@ -16,6 +16,14 @@ import { format } from "date-fns";
 import PdfPreview from "./PdfPreview";
 import { useState } from "react";
 
+const sanitizeFilename = (str) => {
+  if (!str) return "";
+  return str
+    .replace(/[<>:"/\\|?*']/g, "") // Remove illegal OS characters and single quotes
+    .replace(/\s+/g, "_")          // Replace spaces with underscores
+    .trim();
+};
+
 const ScoreCard = ({ score, onEdit }) => {
   const { toggleFavorite, deleteScore } = useScoreStore();
   const { authUser } = useAuthUser();
@@ -36,9 +44,10 @@ const ScoreCard = ({ score, onEdit }) => {
       
       const link = document.createElement("a");
       link.href = url;
-      // Sanitize filename: replace spaces with underscores and remove problematic characters
-      const sanitizedTitle = score.title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "");
-      link.download = `${sanitizedTitle || "score"}.pdf`;
+      
+      const safeTitle = sanitizeFilename(score.title) || "score";
+      const safeArtist = sanitizeFilename(score.artist) || "Unknown_Artist";
+      link.download = `${safeArtist}_-_${safeTitle}.pdf`;
       
       document.body.appendChild(link);
       link.click();

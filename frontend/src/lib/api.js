@@ -19,13 +19,22 @@ export const getAuthUser = async () => {
     const res = await axiosInstance.get("/auth/me");
     return res.data;
   } catch (error) {
-    console.log("Error in getAuthUser:", error);
+    // Total silence for 401/403 - expected behavior for unauthenticated users
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return null;
+    }
+    // Return null for any other auth-check failure to prevent uncaught promise rejections
     return null;
   }
 };
 
 export const completeOnboarding = async (userData) => {
   const response = await axiosInstance.post("/auth/onboarding", userData);
+  return response.data;
+};
+
+export const updateProfile = async (userData) => {
+  const response = await axiosInstance.patch("/users/profile", userData);
   return response.data;
 };
 
@@ -36,6 +45,11 @@ export async function getUserFriends() {
 
 export async function getRecommendedUsers() {
   const response = await axiosInstance.get("/users");
+  return response.data;
+}
+
+export async function getUserById(userId) {
+  const response = await axiosInstance.get(`/users/${userId}`);
   return response.data;
 }
 
@@ -56,6 +70,11 @@ export async function getFriendRequests() {
 
 export async function acceptFriendRequest(requestId) {
   const response = await axiosInstance.put(`/users/friend-request/${requestId}/accept`);
+  return response.data;
+}
+
+export async function rejectFriendRequest(requestId) {
+  const response = await axiosInstance.delete(`/users/friend-request/${requestId}/reject`);
   return response.data;
 }
 
@@ -108,3 +127,67 @@ export async function getOrCreateChatByUserId(targetUserId) {
   const response = await axiosInstance.get(`/chats/direct/${targetUserId}`);
   return response.data;
 }
+
+export async function getRecentChats() {
+  const response = await axiosInstance.get("/chats/recent");
+  return response.data;
+}
+
+export async function getChatMessages(chatId) {
+  const response = await axiosInstance.get(`/chats/${chatId}/messages`);
+  return response.data;
+}
+
+export async function deleteMessage(msgId) {
+  const response = await axiosInstance.delete(`/chats/messages/${msgId}`);
+  return response.data;
+}
+
+export async function updateMessage(msgId, content) {
+  const response = await axiosInstance.patch(`/chats/messages/${msgId}`, { content });
+  return response.data;
+}
+
+export async function togglePinMessage(msgId) {
+  const response = await axiosInstance.patch(`/chats/messages/${msgId}/pin`);
+  return response.data;
+}
+
+export async function endChatSession(chatId) {
+  const response = await axiosInstance.delete(`/chats/session/${chatId}`);
+  return response.data;
+}
+
+// --- E2EE API Functions ---
+
+export async function updatePublicKey(publicKey) {
+  const response = await axiosInstance.patch("/users/public-key", { publicKey });
+  return response.data;
+}
+
+export async function getGroupKeys(chatId) {
+  const response = await axiosInstance.get(`/chats/keys/${chatId}`);
+  return response.data;
+}
+
+export async function storeGroupKeys(chatId, keys) {
+  const response = await axiosInstance.post("/chats/keys", { chatId, keys });
+  return response.data;
+}
+
+export async function deleteAccount() {
+  const response = await axiosInstance.delete("/users/profile");
+  return response.data;
+}
+
+export async function getUnreadCounts() {
+  const response = await axiosInstance.get("/chats/unread-counts");
+  return response.data;
+}
+
+export async function markChatAsRead(chatId) {
+  const response = await axiosInstance.put(`/chats/${chatId}/read`);
+  return response.data;
+}
+
+

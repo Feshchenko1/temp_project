@@ -23,6 +23,8 @@ model User {
   spokenLanguages    String[]
   location         String?         @default("")
   publicKey        String?         @db.Text
+  encryptedPrivateKey String?      @db.Text
+  cryptoSalt        String?        @db.Text
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -32,12 +34,13 @@ model User {
   sentRequests     FriendRequest[] @relation("SenderRequests")
   receivedRequests FriendRequest[] @relation("RecipientRequests")
   
-  chats            Chat[]          @relation("ChatMembers")
+
   messages         Message[]
   
   sentGroupKeys    GroupKey[]      @relation("GroupKeySender")
   receivedGroupKeys GroupKey[]     @relation("GroupKeyRecipient")
 
+  chatMembers      ChatMember[]
   scores           Score[]         @relation("UserScores")
   favoriteScores   FavoriteScore[] @relation("UserFavorites")
 }
@@ -59,13 +62,36 @@ model FriendRequest {
 model Chat {
   id        String   @id @default(uuid())
   isGroup   Boolean  @default(false)
+  chatType  ChatType @default(PERMANENT)
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members   User[]    @relation("ChatMembers")
+  members   ChatMember[]
   messages  Message[]
   groupKeys GroupKey[]
+}
+
+model ChatMember {
+  chatId    String
+  userId    String
+  role      MemberRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  chat      Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+}
+
+enum ChatType {
+  PERMANENT
+  EPHEMERAL
+}
+
+enum MemberRole {
+  ADMIN
+  MEMBER
 }
 
 model Message {
@@ -73,15 +99,22 @@ model Message {
   content   String?
   fileUrl   String?
   fileType  String?
+  originalName String?
+  isPinned  Boolean  @default(false)
+  status    String   @default("SENT") // "SENT", "DELIVERED", "READ"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   senderId  String
   chatId    String
+  replyToId String?
 
-  sender    User @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  chat      Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  chat      Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   Message[] @relation("MessageReplies")
 }
+
 
 model Instrument {
   id        String   @id @default(uuid())

@@ -7,6 +7,11 @@ import {
   getOutgoingFriendReqs,
   getRecommendedUsers,
   sendFriendRequest,
+  rejectFriendRequest,
+  getUserById,
+  updatePublicKey,
+  updateUserProfile,
+  deleteAccount,
 } from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -16,11 +21,18 @@ router.use(protectRoute);
 
 router.get("/", getRecommendedUsers);
 router.get("/friends", getMyFriends);
+router.get("/friend-requests", getFriendRequests);
+router.get("/outgoing-friend-requests", getOutgoingFriendReqs);
 
 router.post("/friend-request/:id", sendFriendRequest);
 router.put("/friend-request/:id/accept", acceptFriendRequest);
+router.delete("/friend-request/:id/reject", rejectFriendRequest);
 
-router.get("/friend-requests", getFriendRequests);
-router.get("/outgoing-friend-requests", getOutgoingFriendReqs);
+router.get("/:userId", getUserById);
+
+
+router.patch("/public-key", updatePublicKey);
+router.patch("/profile", updateUserProfile);
+router.delete("/profile", deleteAccount);
 
 export default router;

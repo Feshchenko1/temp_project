@@ -6,15 +6,44 @@ import { FileIcon, MusicIcon, VideoIcon, DownloadIcon } from "lucide-react";
  * Renders rich media previews based on common file extensions or MIME types found in URL.
  * Designed for Harmonix Chat UI (Studio Dark Aesthetic).
  */
-const MessageAttachment = ({ url, originalName }) => {
+const MessageAttachment = ({ url, originalName, fileType }) => {
   if (!url || typeof url !== "string" || !url.startsWith("http")) return null;
 
   const lowUrl = url.toLowerCase();
-  const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(lowUrl) || url.includes("profile-pics");
-  const isAudio = /\.(mp3|wav|ogg|flac|m4a)$/i.test(lowUrl);
-  const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(lowUrl);
+  
+  // Detection Priority: 1. MIME Type (fileType), 2. Regex on URL
+  const isImage = (fileType && fileType.startsWith("image/")) || /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(lowUrl) || url.includes("profile-pics");
+  const isAudio = (fileType && fileType.startsWith("audio/")) || /\.(mp3|wav|ogg|flac|m4a)$/i.test(lowUrl);
+  const isVideo = (fileType && fileType.startsWith("video/")) || /\.(mp4|webm|ogg|mov)$/i.test(lowUrl);
 
-  const displayName = originalName || url.split("/").pop();
+  const displayName = originalName || url.split("/").pop().split("?")[0];
+
+
+  const handleDownload = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = displayName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Download failed:", error);
+      // Improved fallback: try native link with download attribute as last resort
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = displayName;
+      link.target = "_blank";
+      link.click();
+    }
+  };
+
 
   // Image Rendering
   if (isImage) {
@@ -27,9 +56,9 @@ const MessageAttachment = ({ url, originalName }) => {
           loading="lazy"
         />
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <a href={url} download={displayName} target="_blank" rel="noreferrer" className="btn btn-circle btn-xs bg-black/50 border-none">
+           <button onClick={handleDownload} className="btn btn-circle btn-xs bg-black/50 border-none">
              <DownloadIcon size={12} className="text-white" />
-           </a>
+           </button>
         </div>
       </div>
     );
@@ -59,9 +88,9 @@ const MessageAttachment = ({ url, originalName }) => {
           <source src={url} />
         </video>
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <a href={url} download={displayName} target="_blank" rel="noreferrer" className="btn btn-circle btn-xs bg-black/50 border-none">
+           <button onClick={handleDownload} className="btn btn-circle btn-xs bg-black/50 border-none">
              <DownloadIcon size={12} className="text-white" />
-           </a>
+           </button>
         </div>
       </div>
     );
@@ -77,15 +106,12 @@ const MessageAttachment = ({ url, originalName }) => {
         <p className="text-sm font-medium truncate">{displayName}</p>
         <p className="text-[10px] opacity-40 uppercase font-bold tracking-wider">Attachment</p>
       </div>
-      <a 
-        href={url} 
-        download={displayName} 
-        target="_blank" 
-        rel="noreferrer" 
+      <button 
+        onClick={handleDownload}
         className="btn btn-ghost btn-circle btn-sm opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <DownloadIcon size={16} />
-      </a>
+      </button>
     </div>
   );
 };

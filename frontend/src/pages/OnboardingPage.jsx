@@ -5,27 +5,9 @@ import toast from "react-hot-toast";
 import { completeOnboarding, uploadFileDirectly } from "../lib/api";
 import { LoaderIcon, MapPinIcon, UploadCloudIcon, ShuffleIcon, UserIcon } from "lucide-react";
 import Select from "react-select";
+import { INSTRUMENT_OPTIONS, LANGUAGE_OPTIONS } from "../constants/taxonomy";
 
-// Constants for select options (Replace with real taxonomy later)
-const INSTRUMENT_OPTIONS = [
-  { value: "piano", label: "Piano" },
-  { value: "guitar", label: "Guitar" },
-  { value: "drums", label: "Drums" },
-  { value: "bass", label: "Bass" },
-  { value: "vocals", label: "Vocals" },
-  { value: "violin", label: "Violin" },
-  { value: "synthesizer", label: "Synthesizer" },
-  { value: "saxophone", label: "Saxophone" },
-];
 
-const LANGUAGE_OPTIONS = [
-  { value: "english", label: "English" },
-  { value: "spanish", label: "Spanish" },
-  { value: "french", label: "French" },
-  { value: "german", label: "German" },
-  { value: "japanese", label: "Japanese" },
-  { value: "ukrainian", label: "Ukrainian" },
-];
 
 const OnboardingPage = () => {
   const { authUser } = useAuthUser();
@@ -112,10 +94,29 @@ const OnboardingPage = () => {
   };
 
   const handleRandomAvatar = () => {
-    const randomSeed = encodeURIComponent(formState.fullName || Math.random().toString(36).substring(7));
-    const randomAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomSeed}`;
+    // Generate a truly random string every click. No static names, no ?t= parameters.
+    const trulyRandomSeed = Math.random().toString(36).substring(2, 15);
+    const randomAvatar = `https://api.dicebear.com/9.x/bottts/svg?seed=${trulyRandomSeed}`;
+    
     setFormState({ ...formState, profilePic: randomAvatar });
-    toast.success("Random profile picture attached.");
+    toast.success("New avatar generated!");
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      handleFileUpload({ target: { files: [file] } });
+    } else if (file) {
+      toast.error("Please drop a valid image file.");
+    }
   };
 
   const handleFileUpload = async (e) => {
@@ -129,10 +130,16 @@ const OnboardingPage = () => {
 
     setIsUploading(true);
     try {
-      const fileUrl = await uploadFileDirectly(file);
+      // CRITICAL FIX: Destructure fileUrl from the returned object ({ fileUrl, originalName })
+      const response = await uploadFileDirectly(file);
+      const actualUrl = response.fileUrl || response; // Fallback in case api changes
+
+      if (!actualUrl || typeof actualUrl !== "string") {
+        throw new Error("Invalid URL returned from server.");
+      }
       
-      // 3. Keep the file URL in formState
-      setFormState({ ...formState, profilePic: fileUrl });
+      // Update state with the extracted string URL
+      setFormState({ ...formState, profilePic: actualUrl });
       toast.success("Avatar successfully uploaded.");
     } catch (err) {
       console.error(err);
@@ -144,8 +151,8 @@ const OnboardingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-base-100 flex items-center justify-center p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-4xl mx-auto bg-base-200/50 backdrop-blur-xl border border-base-content/10 shadow-2xl rounded-2xl overflow-hidden">
+    <div className="min-h-screen bg-base-100 flex flex-col items-center justify-center p-4 py-12 sm:p-6 md:p-8">
+      <div className="w-full max-w-4xl mx-auto bg-base-200/50 backdrop-blur-xl border border-base-content/10 shadow-2xl rounded-2xl overflow-y-auto max-h-[90vh]">
         <div className="p-8 sm:p-12">
           
           <div className="text-center mb-10">
@@ -157,7 +164,14 @@ const OnboardingPage = () => {
             
             {/* AVATAR UPLOAD SECTION */}
             <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-base-100/50 border border-base-content/5 rounded-xl">
-              <div className="size-32 rounded-full border-4 border-primary/20 bg-base-300 overflow-hidden shrink-0 flex items-center justify-center shadow-inner relative group">
+              <div 
+                className="size-32 rounded-full border-4 border-primary/20 bg-base-300 overflow-hidden shrink-0 flex items-center justify-center shadow-inner relative group cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
                 {formState.profilePic ? (
                    <img src={formState.profilePic} alt="Profile preview" className="w-full h-full object-cover" />
                 ) : (

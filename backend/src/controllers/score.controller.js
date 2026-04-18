@@ -1,6 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3Client } from "../lib/s3.js";
+import { s3Client, deleteFile } from "../lib/s3.js";
 import { prisma } from "../lib/db.js";
 import crypto from "crypto";
 
@@ -195,6 +195,11 @@ export const deleteScore = async (req, res) => {
     const existingScore = await prisma.score.findUnique({ where: { id } });
     if (!existingScore || existingScore.userId !== userId) {
       return res.status(403).json({ message: "Unauthorized to delete this score" });
+    }
+
+    // Delete the file from S3/R2 storage
+    if (existingScore.fileUrl) {
+      await deleteFile(existingScore.fileUrl);
     }
 
     await prisma.score.delete({ where: { id } });

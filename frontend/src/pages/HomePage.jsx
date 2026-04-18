@@ -1,26 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import {
-  getOutgoingFriendReqs,
-  getRecommendedUsers,
-  getUserFriends,
-  sendFriendRequest,
-} from "../lib/api";
 import { Link } from "react-router";
-import { CheckCircleIcon, MapPinIcon, UserPlusIcon, UsersIcon } from "lucide-react";
+import { CheckCircleIcon, MapPinIcon, UserPlusIcon, XIcon, CheckIcon } from "lucide-react";
+import { useNotificationStore } from "../store/useNotificationStore";
+import { 
+  getOutgoingFriendReqs, 
+  getRecommendedUsers, 
+  getRecentChats, 
+  sendFriendRequest,
+  acceptFriendRequest,
+  rejectFriendRequest
+} from "../lib/api";
 
 import { capitialize } from "../lib/utils";
 
-import FriendCard from "../components/FriendCard";
+import UserCard from "../components/UserCard";
 import NoFriendsFound from "../components/NoFriendsFound";
+import useAuthUser from "../hooks/useAuthUser";
 
 const HomePage = () => {
+  const { authUser } = useAuthUser();
   const queryClient = useQueryClient();
+  const { pendingRequests, removeRequest } = useNotificationStore();
+  const [processingId, setProcessingId] = useState(null);
   const [outgoingRequestsIds, setOutgoingRequestsIds] = useState(new Set());
 
-  const { data: friends = [], isLoading: loadingFriends } = useQuery({
-    queryKey: ["friends"],
-    queryFn: getUserFriends,
+  const { data: recentChats = [], isLoading: loadingFriends } = useQuery({
+    queryKey: ["recent-chats"],
+    queryFn: getRecentChats,
   });
 
   const { data: recommendedUsers = [], isLoading: loadingUsers } = useQuery({
@@ -33,9 +40,42 @@ const HomePage = () => {
     queryFn: getOutgoingFriendReqs,
   });
 
-  const { mutate: sendRequestMutation, isPending } = useMutation({
-    mutationFn: sendFriendRequest,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["outgoingFriendReqs"] }),
+  const { mutate: sendRequestMutation } = useMutation({
+    mutationFn: (userId) => {
+      setProcessingId(userId);
+      return sendFriendRequest(userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["outgoingFriendReqs"] });
+      setProcessingId(null);
+    },
+    onError: () => setProcessingId(null)
+  });
+
+  const { mutate: acceptMutation } = useMutation({
+    mutationFn: (requestId) => {
+      setProcessingId(requestId);
+      return acceptFriendRequest(requestId);
+    },
+    onSuccess: (_, requestId) => {
+      removeRequest(requestId);
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
+      setProcessingId(null);
+    },
+    onError: () => setProcessingId(null)
+  });
+
+  const { mutate: rejectMutation } = useMutation({
+    mutationFn: (requestId) => {
+      setProcessingId(requestId);
+      return rejectFriendRequest(requestId);
+    },
+    onSuccess: (_, requestId) => {
+      removeRequest(requestId);
+      setProcessingId(null);
+    },
+    onError: () => setProcessingId(null)
   });
 
   useEffect(() => {
@@ -50,28 +90,35 @@ const HomePage = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="container mx-auto space-y-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Your Friends</h2>
-          <Link to="/notifications" className="btn btn-outline btn-sm">
-            <UsersIcon className="mr-2 size-4" />
-            Friend Requests
-          </Link>
-        </div>
+      <div className="container mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10">
+        
+        {/* MAIN CONTENT Area */}
+        <div className="lg:col-span-12 space-y-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Your Friends</h2>
+          </div>
 
         {loadingFriends ? (
           <div className="flex justify-center py-12">
             <span className="loading loading-spinner loading-lg" />
           </div>
-        ) : friends.length === 0 ? (
+        ) : recentChats.length === 0 ? (
           <NoFriendsFound />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {friends.map((friend) => (
-              <FriendCard key={friend.id} friend={friend} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recentChats.map((chat) => (
+              <UserCard key={chat.id} user={chat.otherMember} chatId={chat.id}>
+                <Link
+                  to={`/collaborators?chatId=${chat.id}`}
+                  className="btn btn-primary w-full btn-sm"
+                >
+                  Message
+                </Link>
+              </UserCard>
             ))}
           </div>
         )}
+
 
         <section>
           <div className="mb-6 sm:mb-8">
@@ -100,72 +147,64 @@ const HomePage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recommendedUsers.map((user) => {
                 const hasRequestBeenSent = outgoingRequestsIds.has(user.id);
+                // Smart Card logic: find if there is an incoming request from this user
+                const incomingReq = pendingRequests.find(req => req.sender.id === user.id);
+                const isProcessing = processingId === user.id || (incomingReq && processingId === incomingReq.id);
 
                 return (
-                  <div
-                    key={user.id}
-                    className="card bg-base-200 hover:shadow-lg transition-all duration-300"
-                  >
-                    <div className="card-body p-5 space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="avatar size-16 rounded-full">
-                          <img src={user.profilePic} alt={user.fullName} />
-                        </div>
-
-                        <div>
-                          <h3 className="font-semibold text-lg">{user.fullName}</h3>
-                          {user.location && (
-                            <div className="flex items-center text-xs opacity-70 mt-1">
-                              <MapPinIcon className="size-3 mr-1" />
-                              {user.location}
-                            </div>
-                          )}
-                        </div>
+                  <UserCard key={user.id} user={user}>
+                    {incomingReq ? (
+                      <div className="flex gap-2 w-full">
+                        <button
+                          className="btn btn-primary btn-sm flex-1 font-bold"
+                          onClick={() => acceptMutation(incomingReq.id)}
+                          disabled={isProcessing}
+                        >
+                          {isProcessing ? <span className="loading loading-spinner loading-xs" /> : "Accept"}
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm border border-base-300 hover:bg-error hover:text-error-content transition-all"
+                          onClick={() => rejectMutation(incomingReq.id)}
+                          disabled={isProcessing}
+                        >
+                          <XIcon className="size-4" />
+                        </button>
                       </div>
-
-                      {/* Instruments */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {user.instrumentsKnown && user.instrumentsKnown.length > 0 && (
-                          <span className="badge badge-secondary">
-                            Plays: {user.instrumentsKnown.join(", ")}
-                          </span>
-                        )}
-                        {user.instrumentsToLearn && user.instrumentsToLearn.length > 0 && (
-                          <span className="badge badge-outline">
-                            Learning: {user.instrumentsToLearn.join(", ")}
-                          </span>
-                        )}
-                      </div>
-
-                      {user.bio && <p className="text-sm opacity-70">{user.bio}</p>}
-
-                      {/* Action button */}
+                    ) : (
                       <button
-                        className={`btn w-full mt-2 ${
+                        className={`btn w-full btn-sm ${
                           hasRequestBeenSent ? "btn-disabled" : "btn-primary"
                         } `}
                         onClick={() => sendRequestMutation(user.id)}
-                        disabled={hasRequestBeenSent || isPending}
+                        disabled={hasRequestBeenSent || isProcessing}
                       >
                         {hasRequestBeenSent ? (
                           <>
                             <CheckCircleIcon className="size-4 mr-2" />
-                            Request Sent
+                            Sent
+                          </>
+                        ) : isProcessing ? (
+                          <>
+                             <span className="loading loading-spinner loading-xs mr-2" />
+                             Sending...
                           </>
                         ) : (
                           <>
                             <UserPlusIcon className="size-4 mr-2" />
-                            Send Friend Request
+                            Connect
                           </>
                         )}
                       </button>
-                    </div>
-                  </div>
+                    )}
+                  </UserCard>
                 );
               })}
             </div>
           )}
-        </section>
+          </section>
+        </div>
+
+
       </div>
     </div>
   );
