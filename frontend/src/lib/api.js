@@ -14,16 +14,24 @@ export const logout = async () => {
   return response.data;
 };
 
+export const getRecoveryData = async (email) => {
+  const response = await axiosInstance.get(`/auth/recovery-data/${email}`);
+  return response.data;
+};
+
+export const resetPassword = async (payload) => {
+  const response = await axiosInstance.post("/auth/reset-password", payload);
+  return response.data;
+};
+
 export const getAuthUser = async () => {
   try {
     const res = await axiosInstance.get("/auth/me");
     return res.data;
   } catch (error) {
-    // Total silence for 401/403 - expected behavior for unauthenticated users
     if (error.response?.status === 401 || error.response?.status === 403) {
       return null;
     }
-    // Return null for any other auth-check failure to prevent uncaught promise rejections
     return null;
   }
 };
@@ -83,15 +91,9 @@ export async function getStreamToken() {
   return response.data;
 }
 
-/**
- * Direct-to-Cloud Upload Utility
- * 1. Fetches a pre-signed URL from our backend
- * 2. Executes a PUT directly to S3/R2 (Bypassing Nginx 2MB limits)
- */
 export async function uploadFileDirectly(file) {
   if (!file) throw new Error("No file provided");
 
-  // Step 1: Get Pre-signed URL
   const res = await axiosInstance.post("/upload/presigned-url", {
     filename: file.name,
     fileType: file.type
@@ -99,7 +101,6 @@ export async function uploadFileDirectly(file) {
 
   const { presignedUrl, fileUrl } = res.data;
 
-  // Step 2: PUT the raw file directly to the Cloud provider
   const uploadRes = await fetch(presignedUrl, {
     method: "PUT",
     body: file,
@@ -157,8 +158,6 @@ export async function endChatSession(chatId) {
   const response = await axiosInstance.delete(`/chats/session/${chatId}`);
   return response.data;
 }
-
-// --- E2EE API Functions ---
 
 export async function updatePublicKey(publicKey) {
   const response = await axiosInstance.patch("/users/public-key", { publicKey });

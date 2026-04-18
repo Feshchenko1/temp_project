@@ -9,13 +9,11 @@ const NotificationsPage = () => {
   const queryClient = useQueryClient();
   const { pendingRequests, removeRequest, fetchRequests } = useNotificationStore();
 
-  // Load request history (for accepted requests)
   const { data: requestHistory, isLoading: isLoadingHistory } = useQuery({
     queryKey: ["friendRequests"],
     queryFn: getFriendRequests,
   });
 
-  // Re-fetch on mount to ensure we have fresh data for pending
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
@@ -23,7 +21,6 @@ const NotificationsPage = () => {
   const { mutate: acceptRequestMutation, isPending: isAccepting } = useMutation({
     mutationFn: acceptFriendRequest,
     onMutate: (requestId) => {
-      // Optimistically remove from store
       removeRequest(requestId);
     },
     onSuccess: () => {
@@ -31,7 +28,6 @@ const NotificationsPage = () => {
       queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
     },
     onError: () => {
-      // Re-fetch on error to restore state
       fetchRequests();
     }
   });
@@ -39,14 +35,12 @@ const NotificationsPage = () => {
   const { mutate: rejectRequestMutation, isPending: isRejecting } = useMutation({
     mutationFn: rejectFriendRequest,
     onMutate: (requestId) => {
-      // Optimistically remove from store
       removeRequest(requestId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
     },
     onError: () => {
-      // Re-fetch on error to restore state
       fetchRequests();
     }
   });

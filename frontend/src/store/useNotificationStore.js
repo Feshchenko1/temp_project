@@ -9,17 +9,13 @@ export const useNotificationStore = create((set, get) => ({
       const data = await getFriendRequests();
       set({ pendingRequests: data.incomingReqs || [] });
     } catch (error) {
-      console.error("Error fetching friend requests", error);
     }
   },
 
-  // Called when a new socket notification arrives
   addRequest: async (notification) => {
-    // Since socket only sends ID, we re-fetch to get full sender info
     await get().fetchRequests();
   },
 
-  // Optimized remove for instant UI feedback
   removeRequest: (requestId) => {
     set((state) => ({
       pendingRequests: state.pendingRequests.filter(r => r.id !== requestId)
@@ -28,7 +24,6 @@ export const useNotificationStore = create((set, get) => ({
 
   getBadgeCount: () => get().pendingRequests.length,
 
-  // Legacy unread message support (kept for compatibility if needed elsewhere)
   unreadCount: 0,
   setUnreadCount: (count) => set({ unreadCount: count }),
   incrementUnread: () => set((state) => ({ unreadCount: state.unreadCount + 1 })),

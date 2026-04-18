@@ -15,12 +15,11 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
   const [isScreensharing, setIsScreensharing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("initializing");
 
-  // MediaRecorder states
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedSize, setRecordedSize] = useState(0);
-  const [isRemoteFit, setIsRemoteFit] = useState(false); // false = cover (FILL), true = contain (FIT)
+  const [isRemoteFit, setIsRemoteFit] = useState(false);
 
   const socket = useRef(null);
   const peerConnection = useRef(null);
@@ -29,7 +28,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
   const screenStreamRef = useRef(null);
 
 
-  // Rule: Use mutable ref for call data to prevent React lifecycle teardown loops
   const callDataRef = useRef({ chatId, targetUserId, isInitiator, currentUserId });
   useEffect(() => {
     callDataRef.current = { chatId, targetUserId, isInitiator, currentUserId };
@@ -37,40 +35,30 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
 
   useEffect(() => {
     let isMounted = true;
-    console.log("[WebRTC] Initializing with Target:", targetUserId, "Current:", currentUserId);
-    
-    // 1. Synchronous Initialization
+
     socket.current = connectSocket();
     const configuration = {
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     };
 
-    console.log("[WebRTC] Synchronously Instantiating PeerConnection...");
     peerConnection.current = new RTCPeerConnection(configuration);
 
-    // 2. Readiness Promise Architecture
     let resolveMediaReady;
     const mediaReadyPromise = new Promise((res) => {
       resolveMediaReady = res;
     });
-
-    // 3. Immediate Event Binding
     peerConnection.current.ontrack = (event) => {
-      console.log("[WebRTC] Received remote track:", event.track.kind);
       if (!remoteVideoRef.current) return;
 
-      // Use the bundled stream if available (Best Practice)
       if (event.streams && event.streams.length > 0) {
         remoteVideoRef.current.srcObject = event.streams[0];
       } else {
-        // Fallback: Re-assign to force DOM repaint
         let stream = remoteVideoRef.current.srcObject;
         if (!stream) stream = new MediaStream();
         stream.addTrack(event.track);
-        remoteVideoRef.current.srcObject = stream; 
+        remoteVideoRef.current.srcObject = stream;
       }
 
-      // Crucial: Force playback when metadata hits
       remoteVideoRef.current.onloadedmetadata = () => {
         remoteVideoRef.current.play().catch(e => console.warn("WebRTC Play error:", e));
       };
@@ -79,7 +67,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
 
     peerConnection.current.onicecandidate = (event) => {
       if (event.candidate && socket.current) {
-        console.log("[WebRTC] Sending ICE Candidate to:", callDataRef.current.targetUserId);
         socket.current.emit("webrtc-ice-candidate", {
           targetUserId: String(callDataRef.current.targetUserId),
           fromUserId: String(callDataRef.current.currentUserId),
@@ -91,14 +78,12 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
 
     peerConnection.current.onconnectionstatechange = () => {
       if (peerConnection.current) {
-        console.log("[WebRTC] Connection State Changed:", peerConnection.current.connectionState);
         setConnectionStatus(peerConnection.current.connectionState);
       }
     };
 
     const startMedia = async () => {
       try {
-        console.log("[WebRTC] Requesting Local Media...");
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
 
         if (!isMounted) {
@@ -111,30 +96,22 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
 
 
 
-        // Inject tracks into PeerConnection with stream references (Rule C)
-        console.log("[WebRTC] Injecting tracks into PeerConnection...");
         stream.getTracks().forEach(track => {
           peerConnection.current.addTrack(track, stream);
         });
-
-        // SIGNAL READINESS
         resolveMediaReady();
-        console.log("[WebRTC] Local Media Ready & Injected.");
       } catch (err) {
         toast.error("Could not access camera/mic.");
-        console.error("[WebRTC] Failed to access media devices", err);
       }
     };
 
     startMedia();
 
-    // 4. Signaling Listeners with Readiness Await
     socket.current.on("call:response", (data) => {
       if (String(data.fromUserId) !== String(callDataRef.current.targetUserId)) return;
 
       if (data.accepted) {
         if (callDataRef.current.isInitiator) {
-          console.log("[WebRTC] Peer accepted! Preparing Offer...");
           setTimeout(() => {
             if (isMounted) initiateOffer();
           }, 800);
@@ -147,17 +124,14 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
 
     socket.current.on("webrtc-offer", async (data) => {
       if (String(data.fromUserId) !== String(callDataRef.current.targetUserId)) return;
-      
+
       try {
-        // CRITICAL: Wait for local tracks to be ready before creating Answer
-        console.log("[WebRTC] Offer received, awaiting media readiness...");
         await mediaReadyPromise;
-        console.log("[WebRTC] Media ready, processing offer.");
 
         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.offer));
         const answer = await peerConnection.current.createAnswer();
         await peerConnection.current.setLocalDescription(answer);
-        
+
         socket.current.emit("webrtc-answer", {
           targetUserId: String(data.fromUserId),
           fromUserId: String(callDataRef.current.currentUserId),
@@ -165,7 +139,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
           chatId: callDataRef.current.chatId
         });
       } catch (err) {
-        console.error("[WebRTC] Error handling offer", err);
       }
     });
 
@@ -174,7 +147,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
       try {
         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.answer));
       } catch (err) {
-        console.error("[WebRTC] Error handling answer", err);
       }
     });
 
@@ -185,15 +157,13 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
           await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
       } catch (err) {
-        console.error("[WebRTC] Error adding ICE candidate", err);
       }
     });
 
     const initiateOffer = async () => {
       if (!peerConnection.current) return;
       try {
-        await mediaReadyPromise; // Also ensure ready before offering
-        console.log("[WebRTC] Creating Offer...");
+        await mediaReadyPromise;
         const offer = await peerConnection.current.createOffer();
         await peerConnection.current.setLocalDescription(offer);
         socket.current.emit("webrtc-offer", {
@@ -203,13 +173,11 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
           chatId: callDataRef.current.chatId
         });
       } catch (err) {
-        console.error("[WebRTC] Error initiating offer", err);
       }
     };
 
     return () => {
       isMounted = false;
-      console.log("[WebRTC] Cleaning up Call Overlay...");
       if (localStream.current) {
         localStream.current.getTracks().forEach((track) => track.stop());
       }
@@ -227,45 +195,37 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
 
 
   const handleStartRecording = async () => {
-    // 1. UX Guard: Instruct the user before the prompt appears
     toast("Please select 'This Tab' and check 'Share Tab Audio' in the prompt.", {
       icon: "🎬",
       duration: 5000,
     });
 
     try {
-      // 2. Request Tab Capture with modern hints
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: "browser" },
         audio: true,
-        preferCurrentTab: true, // Hints Chrome/Edge to select current tab
-        surfaceSwitching: "exclude" // Prevents changing tabs while recording
+        preferCurrentTab: true,
+        surfaceSwitching: "exclude"
       });
-      displayStreamRef.current = displayStream; // Save for explicit cleanup
+      displayStreamRef.current = displayStream;
 
-      // 3. Setup Audio Mixing (Tab Audio + Local Mic)
       const audioCtx = new AudioContext();
       const dest = audioCtx.createMediaStreamDestination();
 
-      // Add Tab Audio (The remote peer's voice + UI sound)
       if (displayStream.getAudioTracks().length > 0) {
         audioCtx.createMediaStreamSource(displayStream).connect(dest);
       }
 
-      // Add Local Mic Audio
       const localMicTrack = localStream.current?.getAudioTracks()[0];
       if (localMicTrack) {
         const micStream = new MediaStream([localMicTrack]);
         audioCtx.createMediaStreamSource(micStream).connect(dest);
       }
 
-      // 4. Create Composite Stream
       const compositeStream = new MediaStream([
         displayStream.getVideoTracks()[0],
-        dest.stream.getAudioTracks()[0] // Mixed audio
+        dest.stream.getAudioTracks()[0]
       ]);
-
-      // 5. Initialize MediaRecorder
       const options = { mimeType: "video/webm; codecs=vp9" };
       mediaRecorderRef.current = new MediaRecorder(compositeStream, options);
       chunksRef.current = [];
@@ -279,7 +239,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
         }
       };
 
-      // Stop recording automatically if user stops sharing the tab natively
       displayStream.getVideoTracks()[0].onended = () => {
         if (mediaRecorderRef.current?.state !== "inactive") {
           handleStopRecording();
@@ -288,14 +247,13 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
 
       mediaRecorderRef.current.start(1000);
     } catch (err) {
-      console.error("Tab recording failed/cancelled:", err);
       toast.error("Recording cancelled.");
     }
   };
 
   const handleStopRecording = () => {
     setIsRecording(false);
-    
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
@@ -304,7 +262,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
 
-    // NEW: explicitly stop the browser tab capture to remove the native banner
     if (displayStreamRef.current) {
       displayStreamRef.current.getTracks().forEach(track => track.stop());
       displayStreamRef.current = null;
@@ -315,7 +272,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
       const TWO_GB = 2 * 1024 * 1024 * 1024;
 
       if (blob.size < TWO_GB) {
-        // PRO FEATURE: Direct Cloud Bypass for Session Recordings
         try {
           const file = new File([blob], `Session_${Date.now()}.webm`, { type: "video/webm" });
           const { fileUrl, originalName } = await import("../lib/api").then(m => m.uploadFileDirectly(file));
@@ -327,16 +283,11 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
             fileName: originalName
           };
 
-          // Emit to chat room so peers see the recording instantly
           socket.current.emit("send_message", messagePayload);
 
-          console.log("Session recording uploaded successfully:", fileUrl);
         } catch (err) {
-          console.error("Auto-upload failed. Fallback to local.", err);
         }
       } else {
-        // Option B: Raspberry Pi safety fallback (Direct browser hard drive dump)
-        console.log("Blob > 2GB: Hardware constraint triggered, forcing local download.");
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.style.display = "none";
@@ -352,12 +303,11 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
   const toggleScreenshare = async () => {
     try {
       if (!isScreensharing) {
-        console.log("[MediaRecorder] Requesting Display Media...");
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
           audio: true
         });
-        screenStreamRef.current = screenStream; // Save for explicit cleanup
+        screenStreamRef.current = screenStream;
         const screenTrack = screenStream.getVideoTracks()[0];
 
 
@@ -374,7 +324,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
         setIsScreensharing(true);
 
         screenTrack.onended = () => {
-          console.log("[MediaRecorder] Screen Track Ended by User Interaction.");
           stopScreenshare();
         };
       } else {
@@ -383,7 +332,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
     } catch (err) {
       if (err.name !== "NotAllowedError") {
         toast.error("Screenshare error.");
-        console.error("[MediaRecorder] Screenshare error:", err);
       }
     }
   };
@@ -392,7 +340,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
     try {
 
 
-      // Also remember to replace the track on the WebRTC sender!
       if (peerConnection.current && localStream.current) {
         const sender = peerConnection.current.getSenders().find(s => s.track?.kind === "video");
         const cameraTrack = localStream.current.getVideoTracks()[0];
@@ -404,13 +351,11 @@ const VideoCallOverlay = ({ chatId, targetUserId, currentUserId, onEndCall }) =>
       }
       setIsScreensharing(false);
 
-      // NEW: Explicitly stop the screenshare tracks to dismiss the native banner
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach(track => track.stop());
         screenStreamRef.current = null;
       }
     } catch (err) {
-      console.error("Error reverting to camera:", err);
     }
   };
 

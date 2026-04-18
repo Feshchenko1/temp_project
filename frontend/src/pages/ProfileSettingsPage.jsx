@@ -78,7 +78,6 @@ const ProfileSettingsPage = () => {
     })
   };
 
-  // Hydrate form with authUser data
   useEffect(() => {
     if (authUser) {
       setFormData({
@@ -145,17 +144,13 @@ const ProfileSettingsPage = () => {
   const { mutate: deleteMyAccount, isPending: isDeleting } = useMutation({
     mutationFn: deleteAccount,
     onSuccess: async () => {
-      // 1. Purge local crypto identity immediately on account deletion
       try {
         await clearCryptoDatabase();
-        console.log("[E2EE] Local identity purged successfully after account deletion.");
       } catch (err) {
-        console.error("[E2EE] Failed to purge local identity during account deletion:", err);
       }
 
       toast.success("Account deleted. We're sad to see you go.");
       queryClient.setQueryData(["authUser"], null);
-      // Absolute purge: hard refresh to /login
       window.location.href = "/login";
     },
     onError: (error) => {

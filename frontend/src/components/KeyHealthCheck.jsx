@@ -5,7 +5,7 @@ import { updatePublicKey } from "../lib/api";
 import toast from "react-hot-toast";
 
 const KeyHealthCheck = ({ userId }) => {
-  const [status, setStatus] = useState("checking"); // checking, healthy, missing, error
+  const [status, setStatus] = useState("checking");
   const [pubKey, setPubKey] = useState(null);
 
   useEffect(() => {
@@ -21,7 +21,6 @@ const KeyHealthCheck = ({ userId }) => {
         setStatus("missing");
       }
     } catch (err) {
-      console.error(err);
       setStatus("error");
     }
   };

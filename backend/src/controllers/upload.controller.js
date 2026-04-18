@@ -7,7 +7,6 @@ export async function getPresignedUrl(req, res) {
   try {
     const { filename, fileType } = req.body;
 
-    // We shouldn't trust client filenames directly, so we append a uuid/hash.
     const uniqueId = crypto.randomUUID();
     const key = `uploads/${uniqueId}-${filename}`;
 
@@ -19,7 +18,6 @@ export async function getPresignedUrl(req, res) {
 
     const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
-    // Use R2 Public URL for direct read access if configured, else fallback to endpoint
     const bucketUrl = process.env.R2_PUBLIC_URL || process.env.AWS_PUBLIC_URL || `${process.env.AWS_ENDPOINT}/${process.env.AWS_BUCKET_NAME}`;
     const fileUrl = `${bucketUrl}/${key}`;
 
@@ -29,7 +27,6 @@ export async function getPresignedUrl(req, res) {
       originalName: filename
     });
   } catch (error) {
-    console.error("Error generating presigned URL:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

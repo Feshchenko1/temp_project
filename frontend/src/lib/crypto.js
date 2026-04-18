@@ -1,18 +1,9 @@
-/**
- * Web Crypto API Utility for End-to-End Encryption (E2EE)
- * Handles RSA-OAEP for key exchange and AES-GCM for message encryption.
- * Stores private keys securely in IndexedDB.
- */
-
 const DB_NAME = "HarmonixCryptoDB";
 const STORE_NAME = "privateKeys";
 const SESSION_STORE_NAME = "sessionKeys";
 
-// --- IndexedDB Helpers ---
-
 const openDB = () => {
   return new Promise((resolve, reject) => {
-    // Migration: Version 2 adds 'sessionKeys' store for persisting AES keys locally
     const request = indexedDB.open(DB_NAME, 2);
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
@@ -47,7 +38,6 @@ export const removePrivateKey = async (userId) => {
     const store = transaction.objectStore(STORE_NAME);
     const request = store.delete(userId);
     request.onsuccess = () => {
-      console.log(`[E2EE] Private key purged for ${userId}`);
       resolve();
     };
     request.onerror = () => reject(request.error);
@@ -75,8 +65,6 @@ export const getPrivateKey = async (userId) => {
         );
         resolve(privateKey);
       } catch (err) {
-        console.error(`[E2EE] Failed to import private key for ${userId}. Data may be corrupted. Purging...`, err);
-        // Self-healing: Delete corrupted key so it doesn't block future initializations
         await removePrivateKey(userId);
         resolve(null);
       }
@@ -84,8 +72,6 @@ export const getPrivateKey = async (userId) => {
     request.onerror = () => reject(request.error);
   });
 };
-
-// --- Session (AES) Persistence ---
 
 export const saveSessionKey = async (chatId, aesKey) => {
   const db = await openDB();
@@ -95,7 +81,6 @@ export const saveSessionKey = async (chatId, aesKey) => {
     const store = transaction.objectStore(SESSION_STORE_NAME);
     const request = store.put(jwk, chatId);
     request.onsuccess = () => {
-      console.log(`[E2EE] Session key cached locally for chat: ${chatId}`);
       resolve();
     };
     request.onerror = () => reject(request.error);
@@ -120,7 +105,6 @@ export const getSessionKey = async (chatId) => {
         );
         resolve(aesKey);
       } catch (err) {
-        console.error(`[E2EE] Failed to import session key for ${chatId}. Corrupted entry removed.`);
         const delTx = db.transaction(SESSION_STORE_NAME, "readwrite");
         delTx.objectStore(SESSION_STORE_NAME).delete(chatId);
         resolve(null);
@@ -130,36 +114,23 @@ export const getSessionKey = async (chatId) => {
   });
 };
 
-/**
- * Completely wipes the Harmonix Crypto Database.
- * Used during logout to ensure zero-trace and prevent identity bleeding.
- */
 export const clearCryptoDatabase = async () => {
   return new Promise((resolve, reject) => {
-    console.log("[E2EE] Initiating full crypto database wipe...");
     const request = indexedDB.deleteDatabase(DB_NAME);
 
     request.onsuccess = () => {
-      console.log("[E2EE] Crypto database cleared successfully.");
       resolve();
     };
 
     request.onerror = (event) => {
-      console.error("[E2EE] Error clearing crypto database:", event.target.error);
       reject(event.target.error);
     };
 
     request.onblocked = () => {
-      console.warn("[E2EE] Database wipe blocked. Please close other open tabs of Harmonix.");
-      // We resolve anyway to not block the logout UI flow, 
-      // but the data might persist until tabs are closed.
       resolve();
     };
   });
 };
-
-
-// --- RSA Helpers (Key Exchange) ---
 
 export const generateKeyPair = async () => {
   return await window.crypto.subtle.generateKey(
@@ -193,25 +164,16 @@ export const importPublicKey = async (publicKeyString) => {
       ["encrypt"]
     );
   } catch (error) {
-    console.error("[E2EE] Failed to import public key (JWK format expected):", error);
     throw error;
   }
 };
 
-/**
- * High-level helper: Generates a new RSA pair, stores private key in IDB, 
- * and returns the Base64 exported public key.
- */
 export const generateAndStoreRSAKeys = async (userId) => {
-  console.log(`[E2EE] Generating fresh identity for user ${userId}...`);
   const pair = await generateKeyPair();
   await savePrivateKey(userId, pair.privateKey);
   const pubKeyString = await exportPublicKey(pair.publicKey);
-  console.log(`[E2EE] Identity generated. Public key exported.`);
   return pubKeyString;
 };
-
-// --- AES Helpers (Symmetric Encryption) ---
 
 export const generateSymmetricKey = async () => {
   return await window.crypto.subtle.generateKey(
@@ -233,8 +195,6 @@ export const encryptSymmetricKey = async (recipientPublicKey, aesKey) => {
 
 export const decryptSymmetricKey = async (ourPrivateKey, base64EncryptedAesKey) => {
   try {
-    // Robust Base64-to-Uint8Array conversion using explicit loop
-    // to ensure absolute buffer structural integrity for WebCrypto.
     const binaryString = window.atob(base64EncryptedAesKey);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -255,22 +215,15 @@ export const decryptSymmetricKey = async (ourPrivateKey, base64EncryptedAesKey) 
       ["encrypt", "decrypt"]
     );
   } catch (err) {
-    console.error(`[E2EE] RSA Decryption failed. Possible key mismatch or truncated payload.`, err);
     throw err;
   }
 };
 
-/**
- * Rotates the session AES key for a chat.
- * Generates a new key and encrypts it for each recipient's public key.
- */
 export const rotateSessionKey = async (members) => {
-  console.log(`[E2EE] Rotating session key for ${members.length} members...`);
   const newAesKey = await generateSymmetricKey();
   const encryptedKeys = await Promise.all(
     members.map(async (member) => {
       if (!member.publicKey) {
-        console.warn(`[E2EE] Member ${member.fullName} (${member.id}) is missing a public key. Skipping.`);
         return null;
       }
       try {
@@ -281,19 +234,15 @@ export const rotateSessionKey = async (members) => {
           encryptedAesKey: encrypted
         };
       } catch (err) {
-        console.error(`[E2EE] Failed to encrypt session key for ${member.fullName}:`, err);
         return null;
       }
     })
   );
 
   const validKeys = encryptedKeys.filter(k => k !== null);
-  console.log(`[E2EE] Session key rotated. Valid keys: ${validKeys.length}/${members.length}`);
   
   return { newAesKey, encryptedKeys: validKeys };
 };
-
-// --- Message Encryption ---
 
 export const encryptMessage = async (aesKey, plaintext) => {
   const enc = new TextEncoder();
@@ -323,7 +272,6 @@ export const decryptMessage = async (aesKey, encryptedPayload) => {
 
     return new TextDecoder().decode(decrypted);
   } catch {
-    // Return a distinguished placeholder for the UI
     return "🔐 [SECURITY_LOCKOUT: Click 'Regenerate' to restore access]";
   }
 };
@@ -334,28 +282,18 @@ export const purgeChatCryptoData = async (chatId) => {
     const transaction = db.transaction(SESSION_STORE_NAME, "readwrite");
     const store = transaction.objectStore(SESSION_STORE_NAME);
     
-    // Immediate removal of cached session keys
     const request = store.delete(chatId);
     
     request.onsuccess = () => {
-      console.log(`[Zero-Trace] Session key purged from IndexedDB for chat: ${chatId}`);
     };
 
     localStorage.removeItem(`chat_key_${chatId}`);
     localStorage.removeItem(`chat_iv_${chatId}`);
     
-    console.log(`[Zero-Trace] Legacy crypto tags purged for ${chatId}`);
   } catch (error) {
-    console.error("Purge failed:", error);
   }
 };
 
-// --- VAULT & WRAPPING LOGIC (Zero-Knowledge Key Escrow) ---
-
-/**
- * deriveVaultKey
- * Derives a 256-bit symmetric key from a password and salt using PBKDF2.
- */
 export async function deriveVaultKey(password, salt) {
   const enc = new TextEncoder();
   const passwordKey = await window.crypto.subtle.importKey(
@@ -380,11 +318,21 @@ export async function deriveVaultKey(password, salt) {
   );
 }
 
-/**
- * wrapPrivateKey
- * Wraps an RSA Private Key with a password-derived AES key.
- * Returns { encryptedKey: Base64, salt: string }
- */
+export function generateRecoveryKey() {
+  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const randomValues = new Uint8Array(16);
+  window.crypto.getRandomValues(randomValues);
+
+  let key = '';
+  for (let i = 0; i < 16; i++) {
+    key += charset[randomValues[i] % charset.length];
+    if ((i + 1) % 4 === 0 && i !== 15) {
+      key += '-';
+    }
+  }
+  return key;
+}
+
 export async function wrapPrivateKey(privateKey, password) {
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
   const saltStr = btoa(String.fromCharCode(...salt));
@@ -393,7 +341,6 @@ export async function wrapPrivateKey(privateKey, password) {
   
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   
-  // We use wrapKey directly for the Private Key
   const wrappedArrayBuffer = await window.crypto.subtle.wrapKey(
     "pkcs8",
     privateKey,
@@ -401,7 +348,6 @@ export async function wrapPrivateKey(privateKey, password) {
     { name: "AES-GCM", iv }
   );
 
-  // Combine IV + Wrapped Key for storage
   const combined = new Uint8Array(iv.length + wrappedArrayBuffer.byteLength);
   combined.set(iv);
   combined.set(new Uint8Array(wrappedArrayBuffer), iv.length);
@@ -412,10 +358,6 @@ export async function wrapPrivateKey(privateKey, password) {
   };
 }
 
-/**
- * unwrapPrivateKey
- * Decrypts a wrapped RSA Private Key using a password and salt.
- */
 export async function unwrapPrivateKey(encryptedPayload, salt, password) {
   const vaultKey = await deriveVaultKey(password, salt);
   
@@ -434,7 +376,7 @@ export async function unwrapPrivateKey(encryptedPayload, salt, password) {
     vaultKey,
     { name: "AES-GCM", iv },
     { name: "RSA-OAEP", hash: "SHA-256" },
-    true, // extractable
+    true, 
     ["decrypt"]
   );
 }

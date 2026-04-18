@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router";
 import HomePage from "./pages/HomePage.jsx";
 import SignUpPage from "./pages/SignUpPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import NotificationsPage from "./pages/NotificationsPage.jsx";
 import CallPage from "./pages/CallPage.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
@@ -38,16 +39,15 @@ const App = () => {
   const { incrementUnread, fetchRequests, addRequest } = useNotificationStore();
   const { setUnreadCounts, incrementCount, clearCount } = useUnreadStore();
   const queryClient = useQueryClient();
-  
-  // E2EE Identity Healing - background check for missing RSA keys
+
   useIdentityHealer();
-  
-  const { 
-    isInCall, 
-    setIncomingCall, 
-    cancelIncomingCall, 
+
+  const {
+    isInCall,
+    setIncomingCall,
+    cancelIncomingCall,
     endCall,
-    activeCall 
+    activeCall
   } = useCallStore();
 
   const isAuthenticated = Boolean(authUser);
@@ -62,16 +62,14 @@ const App = () => {
   useEffect(() => {
     if (authUser) {
       const socket = connectSocket();
-      
-      // Fetch initial unread counts & friend requests
+
       getUnreadCounts().then(setUnreadCounts).catch(console.error);
       fetchRequests();
 
-      // Join all recent chat rooms to receive messages for unread badges
       getRecentChats().then(chats => {
         chats.forEach(chat => socket.emit("join-chat", chat.id));
       }).catch(console.error);
-      
+
       const handleNotification = (data) => {
         if (data.type === "friend_request") {
           incrementUnread();
@@ -79,34 +77,28 @@ const App = () => {
       };
 
       const handleReceiveMessage = (message) => {
-        // Only increment if we are not the sender
         if (message.senderId !== authUser.id) {
           incrementCount(message.chatId);
-          
-          // Check if we already have this chat in our local list
+
           const recentChats = queryClient.getQueryData(["recent-chats"]) || [];
           const chatExists = recentChats.some(c => c.id === message.chatId);
 
           if (!chatExists) {
-            // New chat detected! Re-fetch the list and join the socket room
             queryClient.invalidateQueries(["recent-chats"]);
             socket.emit("join-chat", message.chatId);
           } else {
-            // Existing chat - just refresh to update the snippet and timestamp
             queryClient.invalidateQueries(["recent-chats"]);
           }
         }
       };
 
       const handleMessagesRead = ({ chatId, readerId }) => {
-        // If someone else read the messages (or us in another tab)
         if (readerId === authUser.id) {
           clearCount(chatId);
         }
       };
 
       const handleIncomingCall = (data) => {
-        // BUSY LOGIC: If already in call, auto-decline with busy status
         if (useCallStore.getState().isInCall) {
           socket.emit("call:response", {
             targetUserId: data.fromUserId,
@@ -124,7 +116,6 @@ const App = () => {
       };
 
       const handleUserDeleted = () => {
-        // Invalidate recent chats to remove any ghost conversations immediately
         queryClient.invalidateQueries(["recent-chats"]);
       };
 
@@ -175,6 +166,12 @@ const App = () => {
           path="/login"
           element={
             !isAuthenticated ? <LoginPage /> : <Navigate to={isOnboarded ? "/" : "/onboarding"} />
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            !isAuthenticated ? <ForgotPasswordPage /> : <Navigate to={isOnboarded ? "/" : "/onboarding"} />
           }
         />
         <Route
@@ -267,14 +264,11 @@ const App = () => {
 
       <Toaster />
 
-      {/* Global Call UI Components */}
       <IncomingCallModal />
-
-      {/* Global Profile Details Modal */}
       <ProfileModal />
-      
+
       {activeCall && (
-        <VideoCallOverlay 
+        <VideoCallOverlay
           chatId={activeCall.chatId}
           targetUserId={activeCall.targetUserId}
           currentUserId={authUser.id}

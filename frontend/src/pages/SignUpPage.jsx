@@ -1,9 +1,14 @@
 import { useState } from "react";
-import { HeadphonesIcon, KeyIcon, MailIcon, UserIcon } from "lucide-react";
+import { HeadphonesIcon, KeyIcon, MailIcon, UserIcon, ShieldAlertIcon, CopyIcon, CheckCircleIcon } from "lucide-react";
 import { Link } from "react-router";
 import useSignUp from "../hooks/useSignUp";
+import { useQueryClient } from "@tanstack/react-query";
 
 const SignUpPage = () => {
+  const queryClient = useQueryClient();
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryKey, setRecoveryKey] = useState("");
+  const [copied, setCopied] = useState(false);
   const [signupData, setSignupData] = useState({
     fullName: "",
     email: "",
@@ -14,16 +19,74 @@ const SignUpPage = () => {
 
   const handleSignup = (e) => {
     e.preventDefault();
-    signupMutation(signupData);
+    signupMutation(signupData, {
+      onSuccess: (data) => {
+        setRecoveryKey(data.recoveryKey);
+        setShowRecoveryModal(true);
+      }
+    });
   };
+
+  const finalizeSignup = () => {
+    queryClient.invalidateQueries({ queryKey: ["authUser"] });
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(recoveryKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (showRecoveryModal) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 bg-base-100 selection:bg-primary/30">
+        <div className="w-full max-w-2xl mx-auto flex flex-col bg-base-200/50 backdrop-blur-xl border border-error/20 shadow-2xl shadow-error/10 rounded-2xl overflow-hidden p-8 sm:p-12 text-center relative">
+
+          <div className="mx-auto bg-error/10 text-error p-4 rounded-full mb-6">
+            <ShieldAlertIcon className="size-12" />
+          </div>
+
+          <h2 className="text-3xl font-bold tracking-tight text-base-content mb-4">Save Your Recovery Key</h2>
+
+          <p className="text-base-content/80 mb-8 max-w-lg mx-auto text-lg">
+            This is the <strong>ONLY</strong> way to recover your encrypted messages if you forget your password. Harmonix uses a Zero-Knowledge architecture, meaning we cannot reset your password for you.
+          </p>
+
+          <div className="bg-base-300/50 border border-base-content/10 rounded-xl p-6 mb-8 flex flex-col items-center gap-4 relative group">
+            <span className="font-mono text-2xl tracking-widest font-bold text-primary select-all">
+              {recoveryKey}
+            </span>
+            <button
+              onClick={handleCopy}
+              className="btn btn-sm btn-ghost absolute top-2 right-2 opacity-50 group-hover:opacity-100 transition-opacity"
+            >
+              {copied ? <CheckCircleIcon className="size-4 text-success" /> : <CopyIcon className="size-4" />}
+            </button>
+          </div>
+
+          <div className="alert alert-warning shadow-sm border-warning/50 bg-warning/10 text-base-content mb-8 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <span>If you lose this key and your password, your account and all conversations will be permanently lost.</span>
+          </div>
+
+          <button
+            onClick={finalizeSignup}
+            className="btn btn-primary btn-lg w-full shadow-lg shadow-primary/20 font-bold"
+          >
+            I have saved it securely, take me to Harmonix
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 bg-base-100 selection:bg-primary/30">
       <div className="w-full max-w-5xl mx-auto flex flex-col lg:flex-row-reverse bg-base-200/50 backdrop-blur-xl border border-base-content/10 shadow-2xl rounded-2xl overflow-hidden">
-        
+
         {/* SIGNUP FORM SECTION */}
         <div className="w-full lg:w-1/2 p-8 sm:p-12 flex flex-col justify-center">
-          
+
           {/* LOGO */}
           <div className="mb-8 flex items-center gap-3">
             <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
@@ -110,9 +173,9 @@ const SignUpPage = () => {
                   </label>
                 </div>
 
-                <button 
-                  type="submit" 
-                  className="btn btn-primary w-full shadow-lg shadow-primary/20 font-semibold mt-2" 
+                <button
+                  type="submit"
+                  className="btn btn-primary w-full shadow-lg shadow-primary/20 font-semibold mt-2"
                   disabled={isPending}
                 >
                   {isPending ? (

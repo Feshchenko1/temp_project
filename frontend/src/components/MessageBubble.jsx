@@ -3,18 +3,18 @@ import { LoaderIcon, Paperclip, Lock, Pin, Reply as ReplyIcon, Copy, ArrowRight,
 import { decryptMessage } from "../lib/crypto";
 import MessageAttachment from "./MessageAttachment";
 
-const MessageBubble = ({ 
-  message, 
-  aesKey, 
-  currentUserId, 
-  highlightedMsgId, 
-  onReply, 
-  onEdit, 
-  onDelete, 
-  onPin, 
-  onForward, 
+const MessageBubble = ({
+  message,
+  aesKey,
+  currentUserId,
+  highlightedMsgId,
+  onReply,
+  onEdit,
+  onDelete,
+  onPin,
+  onForward,
   onCopy,
-  scrollToOriginal 
+  scrollToOriginal
 }) => {
   const [decryptedText, setDecryptedText] = useState(message.text || "");
   const [isDecrypting, setIsDecrypting] = useState(!message.text);
@@ -37,9 +37,9 @@ const MessageBubble = ({
     }
 
     if (message.replyTo?.content) {
-       decryptMessage(aesKey, message.replyTo.content)
-         .then(setDecryptedReply)
-         .catch(() => setDecryptedReply("🔐 [SECURITY_LOCKOUT: Session Integrity Compromised]"));
+      decryptMessage(aesKey, message.replyTo.content)
+        .then(setDecryptedReply)
+        .catch(() => setDecryptedReply("🔐 [SECURITY_LOCKOUT: Session Integrity Compromised]"));
     }
   }, [message.content, message.text, message.replyTo?.content, aesKey]);
 
@@ -49,7 +49,7 @@ const MessageBubble = ({
         setContextMenu(null);
       }
     };
-    
+
     const handleScroll = () => {
       if (contextMenu) setContextMenu(null);
     };
@@ -61,7 +61,7 @@ const MessageBubble = ({
       window.addEventListener("wheel", handleScroll, true);
       window.addEventListener("touchmove", handleScroll, true);
     }
-    
+
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("scroll", handleScroll, true);
@@ -73,19 +73,17 @@ const MessageBubble = ({
 
   const handleContextMenu = (e) => {
     e.preventDefault();
-    
+
     const MENU_WIDTH = 210;
-    const MENU_HEIGHT = 350; 
-    
+    const MENU_HEIGHT = 350;
+
     let x = e.clientX;
     let y = e.clientY;
-    
-    // Horizontal boundary flip
+
     if (x + MENU_WIDTH > window.innerWidth) {
       x = x - MENU_WIDTH;
     }
-    
-    // Vertical boundary flip (Upward)
+
     if (y + MENU_HEIGHT > window.innerHeight) {
       y = Math.max(10, y - MENU_HEIGHT);
     }
@@ -98,15 +96,14 @@ const MessageBubble = ({
 
   return (
     <div id={`msg-${message.id}`} data-id={message.id} className={`chat ${isOwnMessage ? 'chat-end' : 'chat-start'} group/bubble`}>
-      <div 
+      <div
         onContextMenu={handleContextMenu}
-        className={`chat-bubble shadow-md cursor-pointer select-none transition-all duration-300 relative group-hover/bubble:shadow-lg ${
-          highlightedMsgId === message.id ? 'ring-4 ring-primary ring-offset-4 ring-offset-base-300 bg-primary/20 scale-[1.01]' : ''
-        } ${isOwnMessage ? 'bg-primary text-primary-content' : 'bg-base-200'}`}
+        className={`chat-bubble shadow-md cursor-pointer select-none transition-all duration-300 relative group-hover/bubble:shadow-lg ${highlightedMsgId === message.id ? 'ring-4 ring-primary ring-offset-4 ring-offset-base-300 bg-primary/20 scale-[1.01]' : ''
+          } ${isOwnMessage ? 'bg-primary text-primary-content' : 'bg-base-200'}`}
       >
         <div className="flex flex-col gap-1">
           {message.replyTo && (
-            <div 
+            <div
               onClick={() => scrollToOriginal(message.replyTo.id)}
               className="bg-black/10 p-2 rounded-lg border-l-4 border-primary mb-1 text-xs opacity-80 backdrop-blur-sm truncate cursor-pointer hover:bg-black/20 transition-colors"
             >
@@ -115,7 +112,7 @@ const MessageBubble = ({
               </p>
               <div className="truncate">
                 {decryptedReply || message.replyTo.text ? (
-                   decryptedReply || message.replyTo.text
+                  decryptedReply || message.replyTo.text
                 ) : message.replyTo.fileUrl ? (
                   <span className="flex items-center gap-1">
                     <span className="text-primary italic">📎 {message.replyTo.originalName || "File"}</span>
@@ -126,29 +123,29 @@ const MessageBubble = ({
               </div>
             </div>
           )}
-          
+
           <div className="flex flex-col gap-2">
             {isDecrypting ? (
-               <span className="flex items-center gap-2 text-xs opacity-50 italic">
-                 <LoaderIcon size={12} className="animate-spin" /> Decrypting...
-               </span>
+              <span className="flex items-center gap-2 text-xs opacity-50 italic">
+                <LoaderIcon size={12} className="animate-spin" /> Decrypting...
+              </span>
             ) : (
               <div className="relative">
                 <span className="whitespace-pre-wrap">{decryptedText}</span>
                 {message.isEdited && <span className="text-[9px] opacity-40 ml-2 italic">(edited)</span>}
               </div>
             )}
-            
+
             {message.fileUrl && (
               <div className="mt-1">
-                 <div className="text-[10px] opacity-60 mb-1 flex items-center gap-1">
-                   <Paperclip size={10} /> {message.originalName || "Attachment"}
-                 </div>
-                  <MessageAttachment 
-                    url={message.fileUrl} 
-                    fileType={message.fileType} 
-                    originalName={message.originalName}
-                  />
+                <div className="text-[10px] opacity-60 mb-1 flex items-center gap-1">
+                  <Paperclip size={10} /> {message.originalName || "Attachment"}
+                </div>
+                <MessageAttachment
+                  url={message.fileUrl}
+                  fileType={message.fileType}
+                  originalName={message.originalName}
+                />
               </div>
             )}
           </div>
@@ -176,11 +173,11 @@ const MessageBubble = ({
 
       {/* Context Menu - Premium Telegram Style */}
       {contextMenu && (
-        <div 
+        <div
           ref={contextMenuRef}
           className="fixed z-[1000] bg-base-100/95 border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl py-1.5 min-w-[210px] backdrop-blur-2xl animate-in fade-in zoom-in duration-100 flex flex-col overflow-hidden"
-          style={{ 
-            left: `${contextMenu.x}px`, 
+          style={{
+            left: `${contextMenu.x}px`,
             top: `${contextMenu.y}px`,
           }}
         >
@@ -188,9 +185,9 @@ const MessageBubble = ({
             <ReplyIcon size={16} className="text-primary group-hover/item:text-primary-content transition-colors" />
             <span className="text-sm font-medium">Reply</span>
           </button>
-          
-          <button 
-            onClick={() => { onCopy(decryptedText); setContextMenu(null); }} 
+
+          <button
+            onClick={() => { onCopy(decryptedText); setContextMenu(null); }}
             className="flex items-center gap-3 px-4 py-2 hover:bg-primary hover:text-primary-content transition-all duration-200 group/item active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
             disabled={isLockout}
           >
@@ -212,8 +209,8 @@ const MessageBubble = ({
 
           {isOwnMessage && (
             <>
-              <button 
-                onClick={() => { onEdit({ ...message, text: decryptedText }); setContextMenu(null); }} 
+              <button
+                onClick={() => { onEdit({ ...message, text: decryptedText }); setContextMenu(null); }}
                 className="flex items-center gap-3 px-4 py-2 hover:bg-warning/10 text-warning transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                 disabled={isLockout}
               >

@@ -2,10 +2,7 @@ import { MapPinIcon, Music2Icon, GraduationCapIcon, LanguagesIcon } from "lucide
 import { useProfileStore } from "../store/useProfileStore";
 import { useUnreadStore } from "../store/useUnreadStore";
 
-/**
- * Highly Optimized, Ultra-Compact User Card
- * Standardizes height and layout for both Friends and Discovery grids.
- */
+
 const UserCard = ({ user, chatId, children }) => {
   const openProfile = useProfileStore((state) => state.openProfile);
   const unreadCount = useUnreadStore((state) => state.unreadCounts[chatId] || 0);
@@ -32,7 +29,7 @@ const UserCard = ({ user, chatId, children }) => {
       )}
       <div className="card-body p-4 flex flex-col justify-between h-full">
         {/* HEADER AREA - CLICKABLE */}
-        <div 
+        <div
           className="flex items-center gap-3 cursor-pointer group/header"
           onClick={() => openProfile(user)}
         >
@@ -65,7 +62,7 @@ const UserCard = ({ user, chatId, children }) => {
               {moreInstruments > 0 && <span className="text-[10px] opacity-40 font-bold">+{moreInstruments}</span>}
             </div>
           ) : (
-             <span className="text-[10px] italic opacity-30">No instruments</span>
+            <span className="text-[10px] italic opacity-30">No instruments</span>
           )}
           {firstToLearn ? (
             <div className="flex items-center gap-1">

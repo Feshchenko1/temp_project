@@ -8,16 +8,15 @@ import toast from "react-hot-toast";
 
 const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
   const { createScore, updateScore, getPresignedUrl, availableTags, isUploading } = useScoreStore();
-  
+
   const mode = scoreToEdit ? "edit" : "create";
-  
+
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
   const [progress, setProgress] = useState(0);
 
-  // Pre-fill data when editing
   useEffect(() => {
     if (scoreToEdit && isOpen) {
       setTitle(scoreToEdit.title || "");
@@ -26,7 +25,6 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
         scoreToEdit.tags?.map(tag => ({ value: tag, label: tag })) || []
       );
     } else if (!scoreToEdit && isOpen) {
-      // Reset for create mode
       setTitle("");
       setArtist("");
       setSelectedTags([]);
@@ -50,7 +48,7 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (mode === "create") {
       if (!file || !title) return toast.error("Please provide title and PDF file");
 
@@ -78,13 +76,11 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
 
         handleClose();
       } catch (error) {
-        console.error("Upload failed:", error);
         toast.error("Failed to upload score");
       }
     } else {
-      // Edit Mode
       if (!title) return toast.error("Title is required");
-      
+
       try {
         await updateScore(scoreToEdit.id, {
           title,
@@ -100,7 +96,6 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
 
   const handleClose = () => {
     onClose();
-    // Reset state after a delay to smooth transition
     setTimeout(() => {
       setFile(null);
       setTitle("");
@@ -206,9 +201,9 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
               <label className="label">
                 <span className="label-text text-xs font-bold uppercase tracking-widest text-base-content/50">Title</span>
               </label>
-              <input 
-                type="text" 
-                value={title} 
+              <input
+                type="text"
+                value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="input input-bordered w-full rounded-xl bg-base-200/50 focus:bg-base-100"
                 placeholder={mode === "create" ? "Nocturne Op. 9 No. 2" : "Enter title"}
@@ -218,9 +213,9 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
               <label className="label">
                 <span className="label-text text-xs font-bold uppercase tracking-widest text-base-content/50">Artist / Composer</span>
               </label>
-              <input 
-                type="text" 
-                value={artist} 
+              <input
+                type="text"
+                value={artist}
                 onChange={(e) => setArtist(e.target.value)}
                 className="input input-bordered w-full rounded-xl bg-base-200/50 focus:bg-base-100"
                 placeholder={mode === "create" ? "Frédéric Chopin" : "Enter artist"}
@@ -232,9 +227,9 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
             <label className="label">
               <span className="label-text text-xs font-bold uppercase tracking-widest text-base-content/50">Tags</span>
             </label>
-            <Select 
-              isMulti 
-              options={tagOptions} 
+            <Select
+              isMulti
+              options={tagOptions}
               styles={selectStyles}
               value={selectedTags}
               onChange={setSelectedTags}
@@ -257,12 +252,11 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
               </div>
             )}
 
-            <button 
+            <button
               type="submit"
               disabled={isUploading || (mode === "create" && !file) || !title}
-              className={`btn btn-block rounded-xl font-bold h-auto py-3 ${
-                mode === "create" ? "btn-primary" : "btn-secondary"
-              } shadow-lg active:scale-95`}
+              className={`btn btn-block rounded-xl font-bold h-auto py-3 ${mode === "create" ? "btn-primary" : "btn-secondary"
+                } shadow-lg active:scale-95`}
             >
               {isUploading ? (
                 <>

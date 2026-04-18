@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { getGroupKeys } from "../lib/api";
 
-import { 
+import {
   decryptSymmetricKey,
   getPrivateKey,
-  decryptMessage 
+  decryptMessage
 } from "../lib/crypto";
 
 const ChatSnippet = ({ message, chatId, currentUserId, isBold }) => {
   const [decryptedText, setDecryptedText] = useState(null);
-  const [status, setStatus] = useState("loading"); // loading, success, error, file
+  const [status, setStatus] = useState("loading");
 
   useEffect(() => {
     if (!message) {
@@ -26,12 +26,10 @@ const ChatSnippet = ({ message, chatId, currentUserId, isBold }) => {
 
     const resolveAndDecrypt = async () => {
       try {
-        // 1. Try to get key from local storage/session cache if possible (future optimization)
-        // For now, follow requirements: fetch and decrypt
-        
+
         const serverKeys = await getGroupKeys(chatId);
         const myKeyEntry = serverKeys.find(k => k.recipientId === currentUserId);
-        
+
         if (!myKeyEntry) {
           throw new Error("No key for snippet");
         }
@@ -41,12 +39,11 @@ const ChatSnippet = ({ message, chatId, currentUserId, isBold }) => {
 
         const aesKey = await decryptSymmetricKey(privKey, myKeyEntry.encryptedAesKey);
         const decrypted = await decryptMessage(aesKey, message.content);
-        
+
         setDecryptedText(decrypted);
         setStatus("success");
       } catch (err) {
-        // Silence expected E2EE decryption failures (e.g. after key rotation)
-        // console.warn("Snippet decryption failed:", err); 
+
         setStatus("error");
       }
     };
@@ -63,7 +60,7 @@ const ChatSnippet = ({ message, chatId, currentUserId, isBold }) => {
   }
 
   if (status === "file") {
-     return <span className={`text-primary italic font-medium ${isBold ? "font-bold text-base-content" : ""}`}>{decryptedText}</span>;
+    return <span className={`text-primary italic font-medium ${isBold ? "font-bold text-base-content" : ""}`}>{decryptedText}</span>;
   }
 
   return <span className={isBold ? "font-bold text-base-content" : ""}>{decryptedText}</span>;

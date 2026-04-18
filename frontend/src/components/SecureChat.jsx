@@ -5,7 +5,6 @@ import { connectSocket } from "../lib/socketClient";
 import toast from "react-hot-toast";
 import EmojiPicker from "emoji-picker-react";
 
-// Components
 import MessageAttachment from "./MessageAttachment";
 import MessageBubble from "./MessageBubble";
 import VideoCallOverlay from "./VideoCallOverlay";
@@ -62,7 +61,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
   const [highlightedMsgId, setHighlightedMsgId] = useState(null);
 
 
-  // E2EE State
   const [aesKey, setAesKey] = useState(null);
   const [isKeyInitializing, setIsKeyInitializing] = useState(true);
   const [cryptoError, setCryptoError] = useState(null);
@@ -86,9 +84,8 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
   useEffect(() => {
     if (!chatId || !currentUserId) return;
 
-    // 1. Synchronous Reset - Wipe stale state immediately
     currentChatIdRef.current = chatId;
-    rotationAttemptsRef.current = 0; // Reset circuit breaker on chat change
+    rotationAttemptsRef.current = 0;
     const processId = chatId;
 
     setAesKey(null);
@@ -102,35 +99,29 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       isOrchestratingRef.current = true;
 
       setIsLoading(true);
-      hasAttemptedAutoRecovery.current = false; // Reset circuit breaker on chat change
+      hasAttemptedAutoRecovery.current = false;
 
       try {
-        console.log(`[E2EE] Orchestrating session for chat: ${processId}`);
 
-        // 2. Initial Data Load
         const [history, info] = await Promise.all([
           getChatMessages(processId),
           getChatDetails(processId)
         ]);
 
-        // ZOMBIE CHECK: Did the user switch chats while we were fetching?
         if (currentChatIdRef.current !== processId) return;
 
         setMessages(history);
         setChatInfo(info);
         setIsLoading(false);
 
-        // 3. Encryption Initialization Logic
         if (isRegeneratingRef.current) return;
 
-        // Fetch local Identity (RSA)
         let privKey = await getPrivateKey(currentUserId);
         if (currentChatIdRef.current !== processId) return;
 
         const me = info.members.find(m => m.id === currentUserId);
         const hasServerPubKey = !!me?.publicKey;
 
-        // --- BRANCH A: NO IDENTITY ---
         if (!privKey) {
           if (hasServerPubKey) {
             if (hasAttemptedAutoRecovery.current) {
@@ -149,56 +140,40 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
             await handleRotateAESOnly(true);
           }
         } else {
-          // --- BRANCH B: IDENTITY EXISTS ---
-          
-          // 3.1. Attempt LOCAL session key recovery first
+
           const localKey = await getSessionKey(processId);
           if (currentChatIdRef.current !== processId) return;
 
           if (localKey) {
-            console.log(`[E2EE] Session key recovered from local cache for chat: ${processId}`);
             setAesKey(localKey);
           } else {
-            console.log(`[E2EE] Local AES key missing. Attempting to recover from server payload...`);
-            
-            // 3.2. Attempt SERVER session key recovery
+
             const serverKeys = await getGroupKeys(processId);
             if (currentChatIdRef.current !== processId) return;
-
-            // STRICT MAPPING: Filter to find the key specifically encrypted for the local user.
-            // Never attempt to decrypt a key intended for a peer.
             const myKeyEntry = serverKeys.find(k => k.recipientId === currentUserId);
 
             if (myKeyEntry) {
               try {
                 const decKey = await decryptSymmetricKey(privKey, myKeyEntry.encryptedAesKey);
                 if (currentChatIdRef.current !== processId) return;
-                
-                // Persistence: Cache it locally so we don't have to fetch/decrypt next time
+
                 await saveSessionKey(processId, decKey);
-                
+
                 setAesKey(decKey);
-                console.log("[E2EE] Session key recovered and persisted.");
               } catch (decryptErr) {
                 if (decryptErr.name === 'OperationError') {
-                  console.error("[E2EE] Identity sync failure: Your restored private key cannot decrypt the existing chat session.");
-                  console.warn("[E2EE] Auto-rotation suppressed to prevent history loss for other members.");
                   setCryptoError("SYNC_FAIL");
                 } else {
                   throw decryptErr;
                 }
               }
             } else {
-              // 3.3. Last Resort: Auto-rotation
-              // Triggered ONLY if the backend strictly lacks a key for this user
-              console.log("[E2EE] No session key found on server. Initializing fresh secure session...");
               await handleRotateAESOnly(true);
             }
           }
         }
       } catch (err) {
         if (currentChatIdRef.current !== processId) return;
-        console.error("Chat orchestration crashed:", err);
         setCryptoError("Security subsystem error.");
         toast.error("Security sync failed.");
       } finally {
@@ -211,13 +186,10 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     };
 
     const syncLatestSessionKey = async () => {
-      // Surgical key update: avoid resetting messages/loading
       if (currentChatIdRef.current !== processId) return;
-      
+
       try {
-        console.log(`[E2EE] Surgical key sync for chat: ${processId}`);
-        
-        // 1. Try local cache first
+
         const localKey = await getSessionKey(processId);
         if (currentChatIdRef.current !== processId) return;
         if (localKey) {
@@ -228,29 +200,24 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
         const privKey = await getPrivateKey(currentUserId);
         if (currentChatIdRef.current !== processId) return;
 
-        // 2. Try server payload
         const serverKeys = await getGroupKeys(processId);
         if (currentChatIdRef.current !== processId) return;
 
-        // STRICT MAPPING: Only decrypt what belongs to us
         const myKeyEntry = serverKeys.find(k => k.recipientId === currentUserId);
         if (myKeyEntry) {
           const decKey = await decryptSymmetricKey(privKey, myKeyEntry.encryptedAesKey);
           if (currentChatIdRef.current !== processId) return;
-          
+
           await saveSessionKey(processId, decKey);
           setAesKey(decKey);
           setIsAutoSecuring(false);
-          console.log("[E2EE] Surgical key sync complete and persisted.");
         }
       } catch (err) {
-        console.error("[E2EE] Surgical key sync failed:", err);
       }
     };
 
     orchestrateChatInit();
 
-    // 4. Socket Listeners (Strictly scoped to processId)
     socket.current = connectSocket();
 
     const joinRoom = () => {
@@ -263,7 +230,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     socket.current.on("connect", joinRoom);
 
     socket.current.on("receive_message", (data) => {
-      if (data.chatId !== processId) return; // Strict scoping
+      if (data.chatId !== processId) return;
       setMessages((prev) => {
         if (data.clientSideId) {
           const index = prev.findIndex(m => m.clientSideId === data.clientSideId || m.id === data.id);
@@ -300,7 +267,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
 
     socket.current.on("user_key_updated", ({ userId, publicKey }) => {
       if (userId === targetUserId && currentChatIdRef.current === processId) {
-        console.log("[E2EE] Peer key updated. Syncing latest session key...");
         syncLatestSessionKey();
       }
     });
@@ -309,7 +275,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       const { chatId: updatedChatId, senderId } = payload || {};
       if (isRegeneratingRef.current || senderId === currentUserId || updatedChatId !== processId) return;
 
-      console.log("[E2EE] Keys rotated by peer. Performing surgical sync...");
       setIsAutoSecuring(true);
       syncLatestSessionKey();
     });
@@ -324,11 +289,10 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       socket.current.off("message_pinned");
       socket.current.off("user_key_updated");
       socket.current.off("keys_regenerated_update");
-      isOrchestratingRef.current = false; // Release lock on unmount/chat change
+      isOrchestratingRef.current = false;
     };
-  }, [chatId, currentUserId]); // STRICT DEPENDENCIES
+  }, [chatId, currentUserId]);
 
-  // Handle outside clicks for context menu and emoji picker
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
@@ -340,13 +304,8 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [showEmojiPicker]);
 
-  // --- E2EE KEY RESOLUTION ---
-
-  // Helper for AES-only rotation (Session preservation)
   const handleRotateAESOnly = async (isAuto = false) => {
-    // CIRCUIT BREAKER: Avoid infinite render loops if decryption consistently fails
     if (rotationAttemptsRef.current >= 2) {
-      console.error("[E2EE] Circuit breaker tripped: Too many rotation attempts.");
       setCryptoError("Security Handshake Failed. Please click 'Re-secure session'.");
       setIsKeyInitializing(false);
       setIsAutoSecuring(false);
@@ -359,12 +318,11 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       rotationAttemptsRef.current += 1;
     } else {
       setIsKeyInitializing(true);
-      rotationAttemptsRef.current = 0; // User manual click resets the counter
+      rotationAttemptsRef.current = 0;
     }
 
     setCryptoError(null);
     try {
-      console.log(`[E2EE] Rotating AES Session Key (${isAuto ? "AUTO" : "MANUAL"})...`);
 
       const chatDetails = await getChatDetails(chatId);
       const otherMember = chatDetails.members.find(m => m.id !== currentUserId);
@@ -373,13 +331,9 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
         throw new Error("Recipient not found in chat.");
       }
 
-      // FETCH FRESH PEER KEY (Split-Brain Resolution)
-      console.log(`[E2EE] Fetching fresh public key for peer ${otherMember.id}...`);
       const freshPeerRaw = await getUserById(otherMember.id);
       const freshSelfRaw = await getUserById(currentUserId);
-      
-      console.log("[E2EE] Fresh peer payload:", freshPeerRaw);
-      console.log("[E2EE] Fresh self payload:", freshSelfRaw);
+
 
       const peerPubKey = freshPeerRaw?.publicKey || freshPeerRaw?.user?.publicKey;
       const selfPubKey = freshSelfRaw?.publicKey || freshSelfRaw?.user?.publicKey;
@@ -387,7 +341,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       if (!peerPubKey) throw new Error("Peer public key missing. Security initialization required.");
       if (!selfPubKey) throw new Error("Local public key missing. Security initialization required.");
 
-      // Inject fresh keys for BOTH participants to ensure self-encryption (persistence after refresh)
       const updatedMembers = chatDetails.members.map(m => {
         if (m.id === otherMember.id) return { ...m, publicKey: peerPubKey };
         if (m.id === currentUserId) return { ...m, publicKey: selfPubKey };
@@ -402,10 +355,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       socket.current.emit("keys_regenerated", { chatId, senderId: currentUserId });
 
       if (!isAuto) toast.success("Secure session rotated successfully");
-      else console.log("[E2EE] Auto-Magic session recovery complete.");
     } catch (err) {
-      console.error("AES rotation failed:", err);
-      // If auto-rotation fails, we might need a full identity check
       if (isAuto) {
         setCryptoError("Session sync failed. Re-sync required.");
       } else {
@@ -430,35 +380,22 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
 
     setCryptoError(null);
     try {
-      console.log(`[E2EE] Regenerating RSA Identity Pipeline (${isAuto ? "AUTO" : "MANUAL"})...`);
 
-      // 1. Generate fresh RSA Identity
       const pair = await generateKeyPair();
 
-      // 2. Save Private Key locally
       await savePrivateKey(currentUserId, pair.privateKey);
 
-      // 3. Export Public Key
       const pubBase64 = await exportPublicKey(pair.publicKey);
 
-      // 4. Update Server Public Key
       await updatePublicKey(pubBase64);
-
-      // 5. Broadcast Identity Update
       socket.current.emit("user_key_updated", { userId: currentUserId, publicKey: pubBase64 });
-
-      // 6. Rotate AES automatically for the new Identity
       const chatDetails = await getChatDetails(chatId);
       const otherMember = chatDetails.members.find(m => m.id !== currentUserId);
 
-      // Inject local fresh public key into members list
       let membersToEncryptFor = chatDetails.members.map(m =>
         m.id === currentUserId ? { ...m, publicKey: pubBase64 } : m
       );
-
-      // Fetch fresh peer key (Split-Brain Resolution)
       if (otherMember) {
-        console.log(`[E2EE] Fetching fresh public key for peer ${otherMember.id} during identity regeneration...`);
         const freshPeer = await getUserById(otherMember.id);
         if (freshPeer?.publicKey) {
           membersToEncryptFor = membersToEncryptFor.map(m =>
@@ -474,9 +411,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       socket.current.emit("keys_regenerated", { chatId, senderId: currentUserId });
 
       if (!isAuto) toast.success("Identity and session regenerated successfully");
-      else console.log("[E2EE] Identity auto-recovery complete.");
     } catch (err) {
-      console.error("Identity regeneration failed:", err);
       if (!isAuto) toast.error(err.message || "Failed to regenerate security identity.");
       setCryptoError("Critical security failure: Identity lost.");
     } finally {
@@ -489,7 +424,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
 
 
 
-  // Actions
 
   const handleEditStart = async (message) => {
     setEditingMessage(message);
@@ -497,10 +431,8 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     try {
       const decrypted = await decryptMessage(aesKey, message.content);
       setInputText(decrypted || "");
-      // Smooth scroll to input
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     } catch (err) {
-      console.error("Failed to decrypt for editing:", err);
       setInputText("");
       toast.error("Decryption failed for editing.");
     }
@@ -524,10 +456,8 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     if (!messageToForward || !aesKey) return;
 
     try {
-      // 1. Decrypt original message
       const decrypted = await decryptMessage(aesKey, messageToForward.content);
 
-      // 2. Fetch target chat AES key
       const targetKeys = await getGroupKeys(targetChatId);
       const myKeyObj = targetKeys.find(k => k.recipientId === currentUserId);
 
@@ -539,10 +469,8 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       const privKey = await getPrivateKey(currentUserId);
       const targetAesKey = await decryptSymmetricKey(privKey, myKeyObj.encryptedAesKey);
 
-      // 3. Re-encrypt for target
       const reEncrypted = await encryptMessage(targetAesKey, decrypted);
 
-      // 4. Send
       socket.current.emit("send_message", {
         chatId: targetChatId,
         content: reEncrypted,
@@ -555,7 +483,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       setIsForwardModalOpen(false);
       toast.success("Message forwarded securely");
     } catch (err) {
-      console.error("Forward failed:", err);
       toast.error("Failed to forward securely.");
     }
   };
@@ -590,7 +517,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       toast.success("Session and device keys destroyed.");
       window.location.reload();
     } catch (err) {
-      console.error("End session failed:", err);
       toast.error("Failed to destroy session");
     }
   };
@@ -609,13 +535,11 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       try {
         const encryptedContent = await encryptMessage(aesKey, inputText.trim());
         await updateMessageApi(editingMessage.id, encryptedContent);
-        // Socket will handle broadcast, but we update locally too
         setMessages(prev => prev.map(m => m.id === editingMessage.id ? { ...m, content: encryptedContent, isEdited: true } : m));
         setEditingMessage(null);
         setInputText("");
         toast.success("Message updated");
       } catch (err) {
-        console.error("Message update failed:", err);
         toast.error("Edit failed");
       }
       return;
@@ -649,7 +573,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       clientSideId
     };
 
-    // Optimistic Update
     const optimisticMsg = {
       id: clientSideId,
       clientSideId,
@@ -683,7 +606,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     }
 
     setPendingFile(file);
-    if (fileInputRef.current) fileInputRef.current.value = null; // reset
+    if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
   useEffect(() => {
@@ -705,21 +628,13 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       callType: "video"
     });
 
-    // Notify peer via socket
     socket.current.emit("call:initiate", {
       targetUserId,
       chatId,
-      callerName: "Studio Peer" // Ideally use authUser.fullName but this is fine
+      callerName: "Studio Peer"
     });
   };
 
-  // Signaling logic migrated to App.jsx
-
-  // (Cleaned up local call logic)
-
-
-
-  // Read Receipts logic
   useEffect(() => {
     if (!socket.current || !messages.length) return;
 

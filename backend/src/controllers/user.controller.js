@@ -20,14 +20,11 @@ export async function getUserById(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Diagnostic logging for E2EE public key presence
     if (!user.publicKey) {
-      console.warn(`[E2EE] User ${userId} found but has no publicKey.`);
     }
 
     res.status(200).json(user);
   } catch (error) {
-    console.error("Error in getUserById controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -36,7 +33,6 @@ export async function getRecommendedUsers(req, res) {
   try {
     const currentUserId = req.user.id;
     
-    // Get all friends to exclude them
     const currentUser = await prisma.user.findUnique({
       where: { id: currentUserId },
       include: { friends: true }
@@ -63,7 +59,6 @@ export async function getRecommendedUsers(req, res) {
     
     res.status(200).json(recommendedUsers);
   } catch (error) {
-    console.error("Error in getRecommendedUsers controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -91,7 +86,6 @@ export async function getMyFriends(req, res) {
 
     res.status(200).json(user.friends);
   } catch (error) {
-    console.error("Error in getMyFriends controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -102,7 +96,6 @@ export async function sendFriendRequest(req, res) {
     const recipientId = req.params.id;
 
     if (myId === recipientId) {
-      console.error(`[sendFriendRequest] 400: User ${myId} tried to add themselves.`);
       return res.status(400).json({ message: "You can't send friend request to yourself" });
     }
 
@@ -116,7 +109,6 @@ export async function sendFriendRequest(req, res) {
     }
 
     if (recipient.friends.some(f => f.id === myId)) {
-      console.error(`[sendFriendRequest] 400: User ${myId} is already friends with ${recipientId}.`);
       return res.status(400).json({ message: "You are already friends with this user" });
     }
 
@@ -130,7 +122,6 @@ export async function sendFriendRequest(req, res) {
     });
 
     if (existingRequest) {
-      console.error(`[sendFriendRequest] 400: Friend request already exists between ${myId} and ${recipientId}. Status: ${existingRequest.status}`);
       return res.status(400).json({ message: "A friend request already exists between you and this user" });
     }
 
@@ -150,12 +141,10 @@ export async function sendFriendRequest(req, res) {
         });
       }
     } catch (err) {
-      console.error("Socket error on friend request", err);
     }
 
     res.status(201).json(friendRequest);
   } catch (error) {
-    console.error("Error in sendFriendRequest controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -193,7 +182,6 @@ export async function acceptFriendRequest(req, res) {
         data: { friends: { connect: { id: friendRequest.senderId } } }
       });
 
-      // Automatically create a PERMANENT 1-on-1 chat
       await tx.chat.create({
         data: {
           isGroup: false,
@@ -211,7 +199,6 @@ export async function acceptFriendRequest(req, res) {
 
     res.status(200).json({ message: "Friend request accepted" });
   } catch (error) {
-    console.log("Error in acceptFriendRequest controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -239,7 +226,6 @@ export async function rejectFriendRequest(req, res) {
 
     res.status(200).json({ message: "Friend request rejected" });
   } catch (error) {
-    console.error("Error in rejectFriendRequest controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -269,7 +255,6 @@ export async function getFriendRequests(req, res) {
 
     res.status(200).json({ incomingReqs, acceptedReqs });
   } catch (error) {
-    console.log("Error in getFriendRequests controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -289,7 +274,6 @@ export async function getOutgoingFriendReqs(req, res) {
 
     res.status(200).json(outgoingRequests);
   } catch (error) {
-    console.log("Error in getOutgoingFriendReqs controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -311,12 +295,10 @@ export async function updatePublicKey(req, res) {
     try {
       getIo().emit("user_key_updated", { userId, publicKey });
     } catch (err) {
-      console.error("Socket error on public key update", err);
     }
 
     res.status(200).json({ success: true, user: updatedUser });
   } catch (error) {
-    console.error("Error in updatePublicKey controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -332,7 +314,6 @@ export async function updateUserProfile(req, res) {
       });
     }
 
-    // If profilePic is being updated, delete the old one from storage (Deep Clean)
     if (profilePic !== undefined && profilePic !== null) {
       const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { profilePic: true } });
       if (currentUser?.profilePic && currentUser.profilePic !== profilePic) {
@@ -343,7 +324,7 @@ export async function updateUserProfile(req, res) {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        fullName, // Required
+        fullName,
         ...(bio !== undefined && { bio }),
         ...(instrumentsKnown !== undefined && { instrumentsKnown }),
         ...(instrumentsToLearn !== undefined && { instrumentsToLearn }),
@@ -355,7 +336,6 @@ export async function updateUserProfile(req, res) {
 
     res.status(200).json({ success: true, user: updatedUser });
   } catch (error) {
-    console.error("Error in updateUserProfile controller:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -364,7 +344,6 @@ export async function deleteAccount(req, res) {
   try {
     const userId = req.user.id;
 
-    // 1. Fetch user data for cleanup (pre-deletion)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -378,18 +357,13 @@ export async function deleteAccount(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 2. Deep Clean: Purge all files from storage (R2/S3)
     const filesToDelete = [
       user.profilePic,
       ...user.scores.map(s => s.fileUrl)
     ].filter(Boolean);
-
-    // Delete files first. If this fails, we catch it in the outer block.
     await Promise.all(filesToDelete.map(fileUrl => deleteFile(fileUrl)));
 
-    // 3. Database cleanup in a STRICT transaction sequence to avoid self-referencing deadlocks
     await prisma.$transaction(async (tx) => {
-      // PHASE A: Disconnect many-to-many self-relations first (CRITICAL FIX)
       await tx.user.update({
         where: { id: userId },
         data: {
@@ -398,13 +372,11 @@ export async function deleteAccount(req, res) {
         }
       });
 
-      // PHASE B: Clear replyTo references in messages
       await tx.message.updateMany({
         where: { replyTo: { senderId: userId } },
         data: { replyToId: null },
       });
 
-      // PHASE C: Identify and delete 1-on-1 chats (Surgical Ghost Removal)
       const chatsToDelete = await tx.chat.findMany({
         where: {
           isGroup: false,
@@ -419,13 +391,11 @@ export async function deleteAccount(req, res) {
         });
       }
 
-      // PHASE D: Final deletion of the user record
       await tx.user.delete({
         where: { id: userId },
       });
     });
 
-    // 4. Notify friends and active chat members via Socket.io
     const io = getIo();
     if (io) {
       user.friends.forEach(friend => {
@@ -437,13 +407,10 @@ export async function deleteAccount(req, res) {
       });
     }
 
-    // 5. Clear the session cookie ONLY ON ABSOLUTE SUCCESS
     res.clearCookie("jwt");
     res.status(200).json({ success: true, message: "Account deleted successfully and storage purged" });
 
   } catch (error) {
-    console.error("CRITICAL: Error in deleteAccount controller:", error.message);
-    // DO NOT clear cookie here. We want the user to stay logged in if deletion failed.
     res.status(500).json({ 
       message: "An error occurred during account deletion. The operation has been rolled back and your session is still active.",
       error: error.message 

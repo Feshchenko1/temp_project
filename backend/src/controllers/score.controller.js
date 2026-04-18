@@ -27,7 +27,6 @@ export const getPresignedUrlForScore = async (req, res) => {
 
     res.status(200).json({ presignedUrl, fileUrl, key });
   } catch (error) {
-    console.error("Error in getPresignedUrlForScore:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -63,7 +62,6 @@ export const createScore = async (req, res) => {
 
     res.status(201).json(score);
   } catch (error) {
-    console.error("Error in createScore:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -116,7 +114,6 @@ export const getScores = async (req, res) => {
       orderBy: { createdAt: "desc" }
     });
 
-    // Format for frontend
     const formattedScores = scores.map(score => ({
       ...score,
       isFavorite: score.favoritedBy.length > 0,
@@ -125,7 +122,6 @@ export const getScores = async (req, res) => {
 
     res.status(200).json(formattedScores);
   } catch (error) {
-    console.error("Error in getScores:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -141,10 +137,8 @@ export const updateScore = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized to update this score" });
     }
 
-    // 1. Delete all existing tags for this score
     await prisma.scoreTag.deleteMany({ where: { scoreId: id } });
 
-    // 2. Update the score and create new tags if provided
     const updatedScore = await prisma.score.update({
       where: { id },
       data: {
@@ -173,7 +167,6 @@ export const updateScore = async (req, res) => {
       }
     });
 
-    // 3. Format for frontend
     const formattedScore = {
       ...updatedScore,
       isFavorite: updatedScore.favoritedBy.length > 0,
@@ -182,7 +175,6 @@ export const updateScore = async (req, res) => {
 
     res.status(200).json(formattedScore);
   } catch (error) {
-    console.error("Error in updateScore:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -197,7 +189,6 @@ export const deleteScore = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized to delete this score" });
     }
 
-    // Delete the file from S3/R2 storage
     if (existingScore.fileUrl) {
       await deleteFile(existingScore.fileUrl);
     }
@@ -205,7 +196,6 @@ export const deleteScore = async (req, res) => {
     await prisma.score.delete({ where: { id } });
     res.status(200).json({ message: "Score deleted successfully" });
   } catch (error) {
-    console.error("Error in deleteScore:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -235,7 +225,6 @@ export const toggleFavorite = async (req, res) => {
       return res.status(200).json({ message: "Added to favorites", isFavorite: true });
     }
   } catch (error) {
-    console.error("Error in toggleFavorite:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

@@ -18,7 +18,6 @@ const ChatPage = () => {
         const data = await getOrCreateChatByUserId(targetUserId);
         setChat(data);
       } catch (err) {
-        console.error("Failed to find or create direct chat", err);
       } finally {
         setIsLoading(false);
       }
@@ -43,14 +42,13 @@ const ChatPage = () => {
     );
   }
 
-  // Identify the target user (the one who is not the current user)
   const targetUser = chat.members.find(m => m.id !== authUser.id);
 
   return (
     <div className="h-[93vh] max-w-5xl mx-auto p-4 md:p-6 animate-in fade-in zoom-in duration-300">
-      <SecureChat 
-        chatId={chat.id} 
-        currentUserId={authUser.id} 
+      <SecureChat
+        chatId={chat.id}
+        currentUserId={authUser.id}
         targetUserId={targetUser?.id}
         targetUserName={targetUser?.fullName}
       />

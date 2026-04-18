@@ -2,11 +2,9 @@ import { useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Music, AlertCircle, Loader2 } from 'lucide-react';
 
-// Import CSS for proper rendering
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Use CDN for worker to avoid local resolution issues
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const PdfPreview = ({ fileUrl, className, onLoadSuccess }) => {
@@ -36,10 +34,10 @@ const PdfPreview = ({ fileUrl, className, onLoadSuccess }) => {
             </div>
           }
         >
-          <Page 
-            pageNumber={1} 
+          <Page
+            pageNumber={1}
             width={240}
-            renderTextLayer={false} 
+            renderTextLayer={false}
             renderAnnotationLayer={false}
             className="shadow-2xl transition-all duration-700 group-hover:scale-105 border border-base-300 rounded-sm"
           />

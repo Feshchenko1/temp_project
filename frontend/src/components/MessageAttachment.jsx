@@ -1,17 +1,11 @@
 import React from "react";
 import { FileIcon, MusicIcon, VideoIcon, DownloadIcon } from "lucide-react";
 
-/**
- * MessageAttachment Component
- * Renders rich media previews based on common file extensions or MIME types found in URL.
- * Designed for Harmonix Chat UI (Studio Dark Aesthetic).
- */
 const MessageAttachment = ({ url, originalName, fileType }) => {
   if (!url || typeof url !== "string" || !url.startsWith("http")) return null;
 
   const lowUrl = url.toLowerCase();
-  
-  // Detection Priority: 1. MIME Type (fileType), 2. Regex on URL
+
   const isImage = (fileType && fileType.startsWith("image/")) || /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(lowUrl) || url.includes("profile-pics");
   const isAudio = (fileType && fileType.startsWith("audio/")) || /\.(mp3|wav|ogg|flac|m4a)$/i.test(lowUrl);
   const isVideo = (fileType && fileType.startsWith("video/")) || /\.(mp4|webm|ogg|mov)$/i.test(lowUrl);
@@ -34,8 +28,6 @@ const MessageAttachment = ({ url, originalName, fileType }) => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error("Download failed:", error);
-      // Improved fallback: try native link with download attribute as last resort
       const link = document.createElement("a");
       link.href = url;
       link.download = displayName;
@@ -45,26 +37,24 @@ const MessageAttachment = ({ url, originalName, fileType }) => {
   };
 
 
-  // Image Rendering
   if (isImage) {
     return (
       <div className="mt-2 group relative overflow-hidden rounded-xl border border-white/10 shadow-lg max-w-sm">
-        <img 
-          src={url} 
-          alt="Attachment" 
+        <img
+          src={url}
+          alt="Attachment"
           className="max-w-full h-auto object-cover hover:scale-105 transition-transform duration-500 cursor-pointer"
           loading="lazy"
         />
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <button onClick={handleDownload} className="btn btn-circle btn-xs bg-black/50 border-none">
-             <DownloadIcon size={12} className="text-white" />
-           </button>
+          <button onClick={handleDownload} className="btn btn-circle btn-xs bg-black/50 border-none">
+            <DownloadIcon size={12} className="text-white" />
+          </button>
         </div>
       </div>
     );
   }
 
-  // Audio Rendering
   if (isAudio) {
     return (
       <div className="mt-2 p-3 bg-base-300 rounded-xl border border-white/5 flex flex-col gap-2 w-full max-w-[280px]">
@@ -80,7 +70,6 @@ const MessageAttachment = ({ url, originalName, fileType }) => {
     );
   }
 
-  // Video Rendering
   if (isVideo) {
     return (
       <div className="mt-2 rounded-xl border border-white/10 overflow-hidden shadow-xl bg-black max-w-sm relative group">
@@ -88,15 +77,14 @@ const MessageAttachment = ({ url, originalName, fileType }) => {
           <source src={url} />
         </video>
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <button onClick={handleDownload} className="btn btn-circle btn-xs bg-black/50 border-none">
-             <DownloadIcon size={12} className="text-white" />
-           </button>
+          <button onClick={handleDownload} className="btn btn-circle btn-xs bg-black/50 border-none">
+            <DownloadIcon size={12} className="text-white" />
+          </button>
         </div>
       </div>
     );
   }
 
-  // Generic File fallback
   return (
     <div className="mt-2 p-3 bg-base-100 rounded-xl border border-white/5 flex items-center gap-3 hover:bg-base-200 transition-colors group cursor-default max-w-xs">
       <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-content transition-colors overflow-hidden">
@@ -106,7 +94,7 @@ const MessageAttachment = ({ url, originalName, fileType }) => {
         <p className="text-sm font-medium truncate">{displayName}</p>
         <p className="text-[10px] opacity-40 uppercase font-bold tracking-wider">Attachment</p>
       </div>
-      <button 
+      <button
         onClick={handleDownload}
         className="btn btn-ghost btn-circle btn-sm opacity-0 group-hover:opacity-100 transition-opacity"
       >

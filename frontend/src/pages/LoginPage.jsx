@@ -80,6 +80,11 @@ const LoginPage = () => {
                       required
                     />
                   </div>
+                  <label className="label pt-1 pb-0 justify-end">
+                    <Link to="/forgot-password" className="text-xs text-base-content/60 hover:text-primary transition-colors">
+                      Forgot Password?
+                    </Link>
+                  </label>
                 </div>
 
                 <button 

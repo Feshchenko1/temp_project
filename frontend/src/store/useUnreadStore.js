@@ -1,14 +1,13 @@
 import { create } from "zustand";
 
 export const useUnreadStore = create((set, get) => ({
-  unreadCounts: {}, // chatId -> count
+  unreadCounts: {}, 
   activeChatId: null,
 
   setUnreadCounts: (counts) => set({ unreadCounts: counts }),
   setActiveChatId: (id) => set({ activeChatId: id }),
 
   incrementCount: (chatId) => {
-    // Don't increment if this chat is currently active
     if (get().activeChatId === chatId) return;
 
     set((state) => ({

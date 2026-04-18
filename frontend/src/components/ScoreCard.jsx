@@ -1,13 +1,13 @@
 import React from "react";
 import { useScoreStore } from "../store/useScoreStore";
 import useAuthUser from "../hooks/useAuthUser";
-import { 
-  Heart, 
-  Download, 
-  ExternalLink, 
-  Trash2, 
-  User, 
-  Music, 
+import {
+  Heart,
+  Download,
+  ExternalLink,
+  Trash2,
+  User,
+  Music,
   Calendar,
   Pencil,
   Loader2,
@@ -19,8 +19,8 @@ import { useState } from "react";
 const sanitizeFilename = (str) => {
   if (!str) return "";
   return str
-    .replace(/[<>:"/\\|?*']/g, "") // Remove illegal OS characters and single quotes
-    .replace(/\s+/g, "_")          // Replace spaces with underscores
+    .replace(/[<>:"/\\|?*']/g, "")
+    .replace(/\s+/g, "_")
     .trim();
 };
 
@@ -29,34 +29,32 @@ const ScoreCard = ({ score, onEdit }) => {
   const { authUser } = useAuthUser();
   const [detectedPages, setDetectedPages] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  
+
   const isOwner = score.userId === authUser?.id;
   const favoritesCount = score._count?.favoritedBy || 0;
 
   const handleDownload = async () => {
     if (isDownloading) return;
-    
+
     try {
       setIsDownloading(true);
       const response = await fetch(score.fileUrl);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      
+
       const link = document.createElement("a");
       link.href = url;
-      
+
       const safeTitle = sanitizeFilename(score.title) || "score";
       const safeArtist = sanitizeFilename(score.artist) || "Unknown_Artist";
       link.download = `${safeArtist}_-_${safeTitle}.pdf`;
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // Cleanup
+
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Download failed:", error);
     } finally {
       setIsDownloading(false);
     }
@@ -83,13 +81,12 @@ const ScoreCard = ({ score, onEdit }) => {
           {favoritesCount > 0 && (
             <span className="text-xs font-bold text-red-500/80">{favoritesCount}</span>
           )}
-          <button 
+          <button
             onClick={() => toggleFavorite(score.id)}
-            className={`p-2 rounded-xl transition-all ${
-              score.isFavorite 
-                ? "bg-error/20 text-error scale-110 shadow-lg shadow-error/20" 
+            className={`p-2 rounded-xl transition-all ${score.isFavorite
+                ? "bg-error/20 text-error scale-110 shadow-lg shadow-error/20"
                 : "bg-base-300/50 text-base-content/40 hover:text-error hover:bg-error/10"
-            }`}
+              }`}
           >
             <Heart size={18} fill={score.isFavorite ? "currentColor" : "none"} />
           </button>
@@ -98,38 +95,38 @@ const ScoreCard = ({ score, onEdit }) => {
 
       {/* Decorative Music Symbol or Icon / Real Preview */}
       <div className="flex-1 flex items-center justify-center p-6 mb-4 bg-white/[0.02] rounded-xl border border-white/5 group-hover:bg-blue-500/[0.03] transition-colors relative overflow-hidden min-h-[280px]">
-        <PdfPreview 
-          fileUrl={score.fileUrl} 
-          className="absolute inset-0" 
+        <PdfPreview
+          fileUrl={score.fileUrl}
+          className="absolute inset-0"
           onLoadSuccess={(pages) => setDetectedPages(pages)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-           <button onClick={handleView} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-primary transition-all" aria-label="Open PDF">
-             <ExternalLink size={16} />
-           </button>
-           <button 
-             onClick={handleDownload} 
-             disabled={isDownloading}
-             className={`btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-success transition-all ${isDownloading ? "cursor-not-allowed opacity-70" : ""}`} 
-             aria-label="Download"
-           >
-             {isDownloading ? (
-               <Loader2 size={16} className="animate-spin text-success" />
-             ) : (
-               <Download size={16} />
-             )}
-           </button>
-           {isOwner && (
-             <>
-               <button onClick={() => onEdit(score)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-info transition-all" aria-label="Edit">
-                 <Pencil size={16} />
-               </button>
-               <button onClick={() => deleteScore(score.id)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-error transition-all" aria-label="Delete">
-                 <Trash2 size={16} />
-               </button>
-             </>
-           )}
+          <button onClick={handleView} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-primary transition-all" aria-label="Open PDF">
+            <ExternalLink size={16} />
+          </button>
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className={`btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-success transition-all ${isDownloading ? "cursor-not-allowed opacity-70" : ""}`}
+            aria-label="Download"
+          >
+            {isDownloading ? (
+              <Loader2 size={16} className="animate-spin text-success" />
+            ) : (
+              <Download size={16} />
+            )}
+          </button>
+          {isOwner && (
+            <>
+              <button onClick={() => onEdit(score)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-info transition-all" aria-label="Edit">
+                <Pencil size={16} />
+              </button>
+              <button onClick={() => deleteScore(score.id)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-error transition-all" aria-label="Delete">
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -137,8 +134,8 @@ const ScoreCard = ({ score, onEdit }) => {
       {score.tags && score.tags.length > 0 ? (
         <div className="flex flex-wrap gap-2 mb-4 h-[60px] overflow-hidden content-start">
           {score.tags?.map((tag, idx) => (
-            <span 
-              key={idx} 
+            <span
+              key={idx}
               className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black text-primary uppercase tracking-widest hover:bg-primary hover:text-primary-content transition-all cursor-default"
             >
               {typeof tag === "string" ? tag : tag.tag?.name}

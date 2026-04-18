@@ -1,14 +1,12 @@
 import { io } from "socket.io-client";
 
-// Singleton socket instance for the frontend
 let socket = null;
 
 export const getSocket = () => {
   if (!socket) {
-    // Only connect when requested to save Pi resources
     socket = io(import.meta.env.VITE_API_BASE_URL || "/", {
       withCredentials: true,
-      autoConnect: false, // Wait until we call socket.connect()
+      autoConnect: false,
     });
   }
   return socket;

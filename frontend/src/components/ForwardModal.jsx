@@ -18,12 +18,9 @@ const ForwardModal = ({ isOpen, onClose, onForward, originalMessage }) => {
     setLoading(true);
     try {
       const data = await getRecentChats();
-      // Only forward to permanent chats for now, or all chats?
-      // Spec says "active permanent chats/collaborators"
       const permanentChats = data.filter(c => c.chatType === "PERMANENT");
       setChats(permanentChats);
     } catch (error) {
-      console.error("Failed to load chats for forwarding:", error);
     } finally {
       setLoading(false);
     }
@@ -47,7 +44,7 @@ const ForwardModal = ({ isOpen, onClose, onForward, originalMessage }) => {
             </div>
             <h2 className="text-lg font-semibold text-white">Forward Message</h2>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white"
           >
@@ -59,7 +56,7 @@ const ForwardModal = ({ isOpen, onClose, onForward, originalMessage }) => {
         <div className="p-4 border-b border-white/10">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 w-4 h-4" />
-            <input 
+            <input
               type="text"
               placeholder="Search chats..."
               className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm"
@@ -77,16 +74,15 @@ const ForwardModal = ({ isOpen, onClose, onForward, originalMessage }) => {
             filteredChats.map(chat => {
               const name = chat.isGroup ? chat.title : chat.otherMember?.fullName;
               const avatar = chat.isGroup ? null : chat.otherMember?.profilePic;
-              
+
               return (
                 <button
                   key={chat.id}
                   onClick={() => setSelectedChatId(chat.id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
-                    selectedChatId === chat.id 
-                      ? "bg-blue-500/20 border-blue-500/30" 
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${selectedChatId === chat.id
+                      ? "bg-blue-500/20 border-blue-500/30"
                       : "hover:bg-white/5 border-transparent"
-                  } border`}
+                    } border`}
                 >
                   <div className="avatar flex-shrink-0">
                     <div className="w-10 rounded-full bg-white/10">
@@ -122,13 +118,13 @@ const ForwardModal = ({ isOpen, onClose, onForward, originalMessage }) => {
 
         {/* Footer */}
         <div className="p-4 bg-white/5 border-t border-white/10 flex gap-3">
-          <button 
+          <button
             onClick={onClose}
             className="flex-1 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
           >
             Cancel
           </button>
-          <button 
+          <button
             disabled={!selectedChatId}
             onClick={() => onForward(selectedChatId)}
             className="flex-2 py-2 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium text-white flex items-center justify-center gap-2"

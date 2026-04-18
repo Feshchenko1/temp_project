@@ -13,7 +13,6 @@ export const deleteFile = async (fileUrl) => {
   try {
     if (!fileUrl) return;
 
-    // Safety Check: Do NOT attempt to delete DiceBear (URL-based) avatars or external links
     if (fileUrl.includes("dicebear.com")) return;
 
     const url = new URL(fileUrl);
@@ -24,6 +23,5 @@ export const deleteFile = async (fileUrl) => {
       Key: key
     }));
   } catch (error) {
-    console.error("Error deleting file from S3:", error.message);
   }
 };

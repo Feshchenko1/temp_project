@@ -26,7 +26,6 @@ const OnboardingPage = () => {
 
   const [isUploading, setIsUploading] = useState(false);
 
-  // Styling for react-select to match Studio Dark aesthetic
   const customSelectStyles = {
     control: (base, state) => ({
       ...base,
@@ -94,7 +93,6 @@ const OnboardingPage = () => {
   };
 
   const handleRandomAvatar = () => {
-    // Generate a truly random string every click. No static names, no ?t= parameters.
     const trulyRandomSeed = Math.random().toString(36).substring(2, 15);
     const randomAvatar = `https://api.dicebear.com/9.x/bottts/svg?seed=${trulyRandomSeed}`;
     
@@ -130,23 +128,20 @@ const OnboardingPage = () => {
 
     setIsUploading(true);
     try {
-      // CRITICAL FIX: Destructure fileUrl from the returned object ({ fileUrl, originalName })
       const response = await uploadFileDirectly(file);
-      const actualUrl = response.fileUrl || response; // Fallback in case api changes
+      const actualUrl = response.fileUrl || response; 
 
       if (!actualUrl || typeof actualUrl !== "string") {
         throw new Error("Invalid URL returned from server.");
       }
       
-      // Update state with the extracted string URL
       setFormState({ ...formState, profilePic: actualUrl });
       toast.success("Avatar successfully uploaded.");
     } catch (err) {
-      console.error(err);
       toast.error("Upload failed. Ensure backend S3 tokens are valid.");
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = null; // reset
+      if (fileInputRef.current) fileInputRef.current.value = null; 
     }
   };
 

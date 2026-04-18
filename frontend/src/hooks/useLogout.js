@@ -13,7 +13,6 @@ const useLogout = () => {
   } = useMutation({
     mutationFn: logout,
     onSuccess: async () => {
-      // Security: Wipe cryptographic identity from IndexedDB on logout
       await clearCryptoDatabase();
       queryClient.cancelQueries();
       queryClient.setQueryData(["authUser"], null);

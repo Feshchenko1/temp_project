@@ -2,10 +2,6 @@ import { Phone, PhoneOff, User } from "lucide-react";
 import { useCallStore } from "../store/useCallStore";
 import { getSocket } from "../lib/socketClient";
 
-/**
- * IncomingCallModal - A premium, full-screen immersive modal for call invites.
- * Uses glassmorphism and backdrop blur for a high-end studio feel.
- */
 const IncomingCallModal = () => {
   const { incomingCall, declineCall, acceptCall } = useCallStore();
 

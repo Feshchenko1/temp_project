@@ -5,9 +5,8 @@ const GlobalMusicPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
-  const [progress, setProgress] = useState(30); // Placeholder percentage
+  const [progress, setProgress] = useState(30);
 
-  // Mock track data
   const currentTrack = {
     title: "Neon Pulse",
     artist: "Synthwave Collaborative",
@@ -39,8 +38,8 @@ const GlobalMusicPlayer = () => {
           <button className="btn btn-circle btn-ghost btn-sm text-base-content/70 hover:text-primary transition-colors">
             <SkipBackIcon className="size-4" />
           </button>
-          
-          <button 
+
+          <button
             onClick={togglePlay}
             className="btn btn-circle btn-primary btn-sm shadow-md shadow-primary/20"
           >
@@ -59,7 +58,7 @@ const GlobalMusicPlayer = () => {
             <span>{currentTrack.duration}</span>
           </div>
           <div className="w-full h-1.5 bg-base-100 rounded-full overflow-hidden cursor-pointer relative group">
-            <div 
+            <div
               className="absolute top-0 left-0 h-full bg-primary group-hover:bg-primary-focus transition-colors"
               style={{ width: `${progress}%` }}
             ></div>

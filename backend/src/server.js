@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import path from "path";
 import http from "http";
+import helmet from "helmet";
 import { initializeSocket } from "./lib/socket.js";
 
 import authRoutes from "./routes/auth.route.js";
@@ -17,17 +18,18 @@ import { connectDB } from "./lib/db.js";
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io with architecture rules applied
 const io = initializeSocket(server);
 
 const PORT = process.env.PORT || 5001;
 
 const __dirname = path.resolve();
 
+app.use(helmet());
+
 app.use(
   cors({
     origin: "http://localhost:3000",
-    credentials: true, // allow frontend to send cookies
+    credentials: true,
   })
 );
 
@@ -49,6 +51,5 @@ if (process.env.NODE_ENV === "production") {
 }
 
 server.listen(PORT, async () => {
-  console.log(`Server is running on port ${PORT}`);
   await connectDB();
 });

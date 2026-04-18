@@ -1,31 +1,21 @@
 import { create } from "zustand";
 
-/**
- * useCallStore - Centralized state for Harmonix Live Studio (Video/Audio Calls)
- * Handles incoming call modals, active call sessions, and audio notifications.
- */
-
 export const useCallStore = create((set, get) => ({
-  // State
-  incomingCall: null, // { fromUserId, callerName, chatId, callType }
-  activeCall: null,   // { targetUserId, targetName, chatId, callType }
-  isInCall: false,    // True if in call modal or active call
-  isInitiator: false, // True if we started the call
-  ringtone: null,     // Audio instance
+  incomingCall: null, 
+  activeCall: null,   
+  isInCall: false,    
+  isInitiator: false, 
+  ringtone: null,     
 
-  // Setters/Actions
   setIncomingCall: (call) => {
-    // If already in a call, ignore (handled at socket layer)
     if (get().isInCall) return;
-
-    // Initialize and start ringtone (Professional Audio Implementation)
     const audio = new Audio('/sounds/ringtone.mp3');
     audio.loop = true;
     audio.play().catch(() => {});
 
     set({ 
       incomingCall: call, 
-      isInCall: true, // We are "in a call" (busy) once modal shows up
+      isInCall: true, 
       ringtone: audio 
     });
   },
@@ -66,7 +56,6 @@ export const useCallStore = create((set, get) => ({
   },
 
   cancelIncomingCall: () => {
-    // Called when the caller cancels BEFORE we pick up
     const { ringtone } = get();
     if (ringtone) {
       ringtone.pause();
@@ -80,7 +69,6 @@ export const useCallStore = create((set, get) => ({
   },
 
   initiateCall: (target) => {
-    // target: { targetUserId, targetName, chatId, callType }
     set({ 
       activeCall: target, 
       isInCall: true, 

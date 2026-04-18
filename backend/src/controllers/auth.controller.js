@@ -1,16 +1,17 @@
 import { prisma } from "../lib/db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
+import crypto from "crypto";
+import { sendVerificationEmail } from "../lib/email.js";
 export async function signup(req, res) {
-  const { email, password, fullName, publicKey, encryptedPrivateKey, cryptoSalt } = req.body;
+  const { email, password, fullName, publicKey, encryptedPrivateKey, cryptoSalt, recoveryEncryptedKey, recoverySalt } = req.body;
 
   try {
     if (!email || !password || !fullName) {
       return res.status(400).json({ message: "Identity fields (email, password, fullName) are required" });
     }
 
-    if (!publicKey || !encryptedPrivateKey || !cryptoSalt) {
+    if (!publicKey || !encryptedPrivateKey || !cryptoSalt || !recoveryEncryptedKey || !recoverySalt) {
       return res.status(400).json({ 
         message: "Cryptographic identity missing. Registration rejected for E2EE compliance." 
       });
@@ -45,6 +46,8 @@ export async function signup(req, res) {
         publicKey,
         encryptedPrivateKey,
         cryptoSalt,
+        recoveryEncryptedKey,
+        recoverySalt,
       },
     });
 
@@ -61,7 +64,6 @@ export async function signup(req, res) {
 
     res.status(201).json({ success: true, user: newUser });
   } catch (error) {
-    console.log("Error in signup controller", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -93,7 +95,68 @@ export async function login(req, res) {
 
     res.status(200).json({ success: true, user });
   } catch (error) {
-    console.log("Error in login controller", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function getRecoveryData(req, res) {
+  try {
+    const { email } = req.params;
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        recoveryEncryptedKey: true,
+        recoverySalt: true,
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.recoveryEncryptedKey || !user.recoverySalt) {
+      return res.status(400).json({ message: "This account predates Dual Vault. Please contact support." });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function resetPassword(req, res) {
+  try {
+    const { email, newPassword, encryptedPrivateKey, cryptoSalt, recoveryEncryptedKey, recoverySalt } = req.body;
+
+    if (!email || !newPassword || !encryptedPrivateKey || !cryptoSalt || !recoveryEncryptedKey || !recoverySalt) {
+      return res.status(400).json({ message: "Missing required cryptographic materials" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        password: hashedPassword,
+        encryptedPrivateKey,
+        cryptoSalt,
+        recoveryEncryptedKey,
+        recoverySalt
+      }
+    });
+
+    res.status(200).json({ message: "Password reset and Vaults migrated successfully" });
+  } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -130,7 +193,6 @@ export async function onboard(req, res) {
 
     res.status(200).json({ success: true, user: updatedUser });
   } catch (error) {
-    console.error("Onboarding error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -152,12 +214,44 @@ export async function updatePublicKey(req, res) {
     try {
       getIo().emit("user_key_updated", { userId, publicKey });
     } catch (err) {
-      console.error("Socket error on public key update", err);
     }
 
     res.status(200).json({ success: true, user: updatedUser });
   } catch (error) {
-    console.error("Error in updatePublicKey controller", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function sendOTP(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await prisma.verificationToken.upsert({
+      where: { email },
+      update: { code, expiresAt },
+      create: { email, code, expiresAt },
+    });
+
+    await sendVerificationEmail(email, code);
+
+    res.status(200).json({ message: "Verification code sent." });
+  } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

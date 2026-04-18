@@ -4,7 +4,7 @@ import { prisma } from "./db.js";
 
 
 let io;
-const onlineUsers = new Map(); // userId -> Set of socketIds
+const onlineUsers = new Map();
 
 export const initializeSocket = (server) => {
   io = new Server(server, {
@@ -14,7 +14,6 @@ export const initializeSocket = (server) => {
     },
   });
 
-  // Socket.io Authentication Middleware
   io.use((socket, next) => {
     try {
       const cookies = socket.handshake.headers.cookie;
@@ -34,7 +33,6 @@ export const initializeSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
-    console.log(`User connected to Socket.io: ${socket.userId} (${socket.id})`);
 
     if (socket.userId) {
       if (!onlineUsers.has(socket.userId)) {
@@ -44,13 +42,10 @@ export const initializeSocket = (server) => {
       io.emit("user_status_change", Array.from(onlineUsers.keys()));
     }
 
-    // 1. Join personal room for direct signaling (incoming calls/messages)
     socket.join(`user_${socket.userId}`);
 
-    // Join group chat rooms
     socket.on("join-chat", (chatId) => {
       socket.join(`chat_${chatId}`);
-      console.log(`User ${socket.userId} joined chat_${chatId}`);
     });
 
     socket.on("leave-chat", (chatId) => {
@@ -86,7 +81,6 @@ export const initializeSocket = (server) => {
           }
         });
 
-        // 1. Fetch all chat members to ensure they receive the message via their personal rooms
         const chat = await prisma.chat.findUnique({
           where: { id: chatId },
           include: { members: { select: { userId: true } } }
@@ -94,7 +88,6 @@ export const initializeSocket = (server) => {
 
         if (chat) {
           chat.members.forEach(member => {
-            // Emit to each user's personal room (covers 'Ghost Chat' scenario)
             io.to(`user_${member.userId}`).emit("receive_message", { ...newMessage, clientSideId });
           });
         }
@@ -104,7 +97,6 @@ export const initializeSocket = (server) => {
           data: { updatedAt: new Date() }
         });
       } catch (error) {
-        console.error("Socket Error (send_message):", error.message);
       }
     });
 
@@ -117,7 +109,6 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("keys_regenerated", ({ chatId }) => {
-      console.log(`[CRYPTO] Key regeneration signaled for chat ${chatId} by ${socket.userId}`);
       io.to(`chat_${chatId}`).emit("keys_regenerated_update", { chatId, senderId: socket.userId });
     });
 
@@ -134,37 +125,27 @@ export const initializeSocket = (server) => {
 
         io.to(`chat_${chatId}`).emit("messages_read", { chatId, messageIds });
       } catch (error) {
-        console.error("Socket Error (mark_as_read):", error.message);
       }
     });
 
 
-    // 2. WebRTC Peer-to-Peer Signaling (Video/Audio Calls)
-    // The server blindly routes this encrypted/metadata payload.
-    // It NEVER parses the media.
     socket.on("peer-ready", (data) => {
-      console.log(`[RTC] Peer Ready Signal: -> user_${data.targetUserId}`);
       io.to(`user_${data.targetUserId}`).emit("peer-ready", data);
     });
 
     socket.on("webrtc-offer", (data) => {
-      console.log(`[RTC] Rerouting Offer: ${socket.userId} -> user_${data.targetUserId} (Chat: ${data.chatId})`);
       io.to(`user_${data.targetUserId}`).emit("webrtc-offer", data);
     });
 
     socket.on("webrtc-answer", (data) => {
-      console.log(`[RTC] Rerouting Answer: ${socket.userId} -> user_${data.targetUserId} (Chat: ${data.chatId})`);
       io.to(`user_${data.targetUserId}`).emit("webrtc-answer", data);
     });
 
     socket.on("webrtc-ice-candidate", (data) => {
-      console.log(`[RTC] Rerouting ICE Candidate: ${socket.userId} -> user_${data.targetUserId}`);
       io.to(`user_${data.targetUserId}`).emit("webrtc-ice-candidate", data);
     });
 
-    // 3. Formal Call Signaling (Modal support)
     socket.on("call:initiate", ({ targetUserId, chatId, callerName }) => {
-      console.log(`[CALL] Initiation from ${socket.userId} to ${targetUserId} (Chat: ${chatId})`);
       io.to(`user_${targetUserId}`).emit("call:incoming", {
         fromUserId: socket.userId,
         callerName,
@@ -173,7 +154,6 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("call:response", ({ targetUserId, accepted, chatId }) => {
-      console.log(`[CALL] Response from ${socket.userId} to ${targetUserId} (Accepted: ${accepted})`);
       io.to(`user_${targetUserId}`).emit("call:response", {
         fromUserId: socket.userId,
         accepted,
@@ -182,7 +162,6 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("disconnect", () => {
-      console.log(`User disconnected: ${socket.userId}`);
       if (socket.userId && onlineUsers.has(socket.userId)) {
         onlineUsers.get(socket.userId).delete(socket.id);
         if (onlineUsers.get(socket.userId).size === 0) {
