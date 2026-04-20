@@ -255,6 +255,7 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
   const displayStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
+  const wasEstablishedRef = useRef(false);
 
   const callDataRef = useRef({ chatId, targetUserId, isInitiator, currentUserId });
   useEffect(() => {
@@ -281,6 +282,7 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
         return next;
       });
       setConnectionStatus("connected");
+      wasEstablishedRef.current = true;
     };
 
     pc.onicecandidate = (event) => {
@@ -431,6 +433,12 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
       }
     });
 
+    socket.current.on("call:response", (data) => {
+      if (data.accepted === false) {
+        toast.error(`${targetName || "Recipient"} declined the call.`);
+      }
+    });
+
     socket.current.on("webrtc-ice-candidate", async (data) => {
       const pc = peerConnections.current.get(data.fromUserId);
       if (pc) {
@@ -450,6 +458,8 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
       peerConnections.current.forEach((pc) => pc.close());
       peerConnections.current.clear();
       
+      // Relying on backend disconnected reaper for dead connections instead of React unmounts
+
       socket.current?.off("call:user-joined");
       socket.current?.off("webrtc-offer");
       socket.current?.off("webrtc-answer");

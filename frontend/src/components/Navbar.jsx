@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import useAuthUser from "../hooks/useAuthUser";
-import { HeadphonesIcon, PanelLeftIcon, Play, Pause, X, Volume2, VolumeX, UsersIcon } from "lucide-react";
+import { HeadphonesIcon, PanelLeftIcon, Play, Pause, X, Volume2, VolumeX, UsersIcon, SkipBack, SkipForward, Camera } from "lucide-react";
 import { useLayoutStore } from "../store/useLayoutStore";
 import { useAudioStore } from "../store/useAudioStore";
 import { useUnreadStore } from "../store/useUnreadStore";
@@ -10,7 +10,7 @@ import { getRecentChats } from "../lib/api";
 const Navbar = () => {
   const { authUser } = useAuthUser();
   const { isSidebarCollapsed, toggleSidebar, onlineUserIds } = useLayoutStore();
-  const { currentTrack, isPlaying, volume, setVolume, togglePlayPause, stopTrack } = useAudioStore();
+  const { currentTrack, isPlaying, volume, setVolume, togglePlayPause, stopTrack, playNext, playPrev } = useAudioStore();
   const { unreadCounts } = useUnreadStore();
 
   const { data: recentChats = [] } = useQuery({
@@ -74,8 +74,13 @@ const Navbar = () => {
                     {isOnline && (
                       <div className="absolute bottom-0 right-0 size-2.5 bg-success border-2 border-base-100 rounded-full"></div>
                     )}
+                    {chat.isCallActive && (
+                      <div className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center bg-success rounded-full border-2 border-base-100 shadow-sm animate-pulse z-20">
+                        <Camera className="size-2 text-white fill-white/20" />
+                      </div>
+                    )}
                     {unreadCount > 0 && (
-                      <div className="absolute -top-1 -right-1 badge badge-primary badge-xs scale-75 border-base-100 shadow-sm">
+                      <div className="absolute -top-1 -right-1 badge badge-primary badge-xs scale-75 border-base-100 shadow-sm z-20">
                         {unreadCount}
                       </div>
                     )}
@@ -111,9 +116,19 @@ const Navbar = () => {
                       </span>
                     </div>
 
-                    <button onClick={togglePlayPause} className="btn btn-primary btn-xs btn-circle shrink-0 shadow-md hover:scale-110">
-                      {isPlaying ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={playPrev} className="text-base-content/40 hover:text-primary transition-colors p-1">
+                        <SkipBack size={14} />
+                      </button>
+                      
+                      <button onClick={togglePlayPause} className="btn btn-primary btn-xs btn-circle shrink-0 shadow-md hover:scale-110">
+                        {isPlaying ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
+                      </button>
+                      
+                      <button onClick={playNext} className="text-base-content/40 hover:text-primary transition-colors p-1">
+                        <SkipForward size={14} />
+                      </button>
+                    </div>
 
                     {/* CUSTOM VOLUME SLIDER */}
                     <div className="flex items-center gap-3 hidden sm:flex group/vol px-2">

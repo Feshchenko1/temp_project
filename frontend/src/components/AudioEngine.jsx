@@ -11,11 +11,11 @@ const AudioEngine = () => {
     currentTrack,
     isPlaying,
     volume,
-    isLooping,
+    loopMode,
     seekTo,
     setCurrentTime,
     setDuration,
-    stopTrack,
+    playNext,
     resetSeek
   } = useAudioStore();
 
@@ -41,15 +41,15 @@ const AudioEngine = () => {
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
-      audioRef.current.loop = isLooping;
+      audioRef.current.loop = loopMode === 2; // Native loop only for single track repeat
     }
-  }, [volume, isLooping, currentTrack]);
+  }, [volume, loopMode, currentTrack]);
 
   // 3. Handle External Seek Commands
   useEffect(() => {
     if (seekTo !== null && audioRef.current) {
       audioRef.current.currentTime = seekTo;
-      resetSeek(); 
+      resetSeek();
     }
   }, [seekTo, resetSeek]);
 
@@ -58,11 +58,11 @@ const AudioEngine = () => {
   return (
     <audio
       ref={audioRef}
-      key={currentTrack.audioUrl} 
-      src={currentTrack.audioUrl}
+      key={currentTrack.audioUrl || currentTrack.fileUrl} // Use URL as key to reset audio element on source change
+      src={currentTrack.audioUrl || currentTrack.fileUrl}
       onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
       onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-      onEnded={() => !isLooping && stopTrack()}
+      onEnded={() => playNext()} // Let playNext handle the transition logic
       className="hidden"
       aria-hidden="true"
     />

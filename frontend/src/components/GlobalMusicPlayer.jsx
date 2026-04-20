@@ -6,6 +6,8 @@ import {
   Volume2, 
   VolumeX, 
   Repeat,
+  Repeat1,
+  Shuffle,
   Music,
   X
 } from "lucide-react";
@@ -16,12 +18,16 @@ const GlobalMusicPlayer = () => {
     currentTrack, 
     isPlaying, 
     volume, 
-    isLooping, 
+    loopMode, 
+    isShuffled,
     currentTime,
     duration,
     togglePlayPause, 
     setVolume, 
-    toggleLoop,
+    toggleLoopMode,
+    toggleShuffle,
+    playNext,
+    playPrev,
     stopTrack,
     triggerSeek
   } = useAudioStore();
@@ -91,19 +97,31 @@ const GlobalMusicPlayer = () => {
 
       <div className="p-3 space-y-3">
         {/* Controls */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-2">
+          {/* Shuffle & Repeat */}
           <div className="flex items-center gap-1">
             <button 
-              onClick={toggleLoop}
-              className={`btn btn-ghost btn-xs btn-circle ${isLooping ? 'text-primary' : 'text-base-content/30'}`}
-              title="Loop"
+              onClick={toggleShuffle}
+              className={`btn btn-ghost btn-xs btn-circle ${isShuffled ? 'text-primary' : 'text-base-content/30'}`}
+              title="Shuffle"
             >
-              <Repeat size={14} />
+              <Shuffle size={14} />
+            </button>
+            <button 
+              onClick={toggleLoopMode}
+              className={`btn btn-ghost btn-xs btn-circle ${loopMode > 0 ? 'text-primary' : 'text-base-content/30'}`}
+              title={loopMode === 2 ? "Loop Track" : loopMode === 1 ? "Loop Queue" : "Loop Off"}
+            >
+              {loopMode === 2 ? <Repeat1 size={14} /> : <Repeat size={14} />}
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button className="btn btn-ghost btn-sm btn-circle text-base-content/40 cursor-not-allowed">
+          {/* Core Playback */}
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={playPrev}
+              className="btn btn-ghost btn-sm btn-circle text-base-content/70 hover:text-primary transition-colors"
+            >
               <SkipBack size={18} />
             </button>
 
@@ -114,13 +132,17 @@ const GlobalMusicPlayer = () => {
               {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
             </button>
 
-            <button className="btn btn-ghost btn-sm btn-circle text-base-content/40 cursor-not-allowed">
+            <button 
+              onClick={playNext}
+              className="btn btn-ghost btn-sm btn-circle text-base-content/70 hover:text-primary transition-colors"
+            >
               <SkipForward size={18} />
             </button>
           </div>
 
-          <div className="w-6"></div> {/* Spacer for symmetry */}
+          <div className="w-12"></div> {/* Spacer for symmetry */}
         </div>
+
 
         {/* Progress */}
         <div className="space-y-1">

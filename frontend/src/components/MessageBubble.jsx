@@ -113,8 +113,12 @@ const MessageBubble = ({
       )}
       <div
         onContextMenu={handleContextMenu}
-        className={`chat-bubble shadow-md cursor-pointer select-none transition-all duration-300 relative group-hover/bubble:shadow-lg ${highlightedMsgId === message.id ? 'ring-4 ring-primary ring-offset-4 ring-offset-base-300 bg-primary/20 scale-[1.01]' : ''
-          } ${isOwnMessage ? 'bg-primary text-primary-content' : 'bg-base-200'}`}
+        className={`chat-bubble shadow-md cursor-pointer select-none transition-all duration-300 relative group-hover/bubble:shadow-lg 
+          ${highlightedMsgId === message.id ? 'ring-4 ring-primary ring-offset-4 ring-offset-base-300 bg-primary/20 scale-[1.01]' : ''} 
+          ${isOwnMessage
+            ? 'bg-primary text-primary-content'
+            : 'bg-base-200 text-base-content' // Додано text-base-content для вхідних
+          }`}
       >
         <div className="flex flex-col gap-1">
           {isGroup && !isOwnMessage && (
@@ -126,9 +130,10 @@ const MessageBubble = ({
           {message.replyTo && (
             <div
               onClick={() => scrollToOriginal(message.replyTo.id)}
-              className="bg-black/10 p-2 rounded-lg border-l-4 border-primary mb-1 text-xs opacity-80 backdrop-blur-sm truncate cursor-pointer hover:bg-black/20 transition-colors"
+              className={`p-2 rounded-lg border-l-4 border-primary mb-1 text-xs truncate cursor-pointer transition-colors
+                ${isOwnMessage ? 'bg-black/10 text-primary-content/80' : 'bg-base-300/50 text-base-content/80'}`}
             >
-              <p className="font-bold text-[10px] uppercase opacity-50 mb-0.5">
+              <p className="font-bold text-[10px] uppercase opacity-60 mb-0.5">
                 Replying to {message.replyTo.senderId === currentUserId ? "you" : "peer"}
               </p>
               <div className="truncate">
@@ -147,7 +152,7 @@ const MessageBubble = ({
 
           <div className="flex flex-col gap-2">
             {isDecrypting ? (
-              <span className="flex items-center gap-2 text-xs opacity-50 italic">
+              <span className={`flex items-center gap-2 text-xs italic opacity-50`}>
                 <LoaderIcon size={12} className="animate-spin" /> Decrypting...
               </span>
             ) : (
@@ -172,14 +177,16 @@ const MessageBubble = ({
           </div>
         </div>
 
-        <div className="chat-footer opacity-50 text-[10px] mt-1 flex items-center gap-1 justify-end translate-y-1">
+        {/* Секція футера: час та галочки */}
+        <div className={`chat-footer opacity-70 text-[10px] mt-1 flex items-center gap-1 justify-end translate-y-1 
+          ${isOwnMessage ? 'text-primary-content' : 'text-base-content'}`}>
           {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
           {isOwnMessage && (
             <div className="flex items-center ml-1">
               {message.status === "SENDING" ? (
                 <LoaderIcon size={8} className="animate-spin" />
               ) : message.status === "READ" ? (
-                <span className="flex -space-x-1 text-primary-content brightness-125">
+                <span className={`flex -space-x-1 ${isOwnMessage ? 'brightness-125' : ''}`}>
                   <span className="text-[10px] drop-shadow-sm">✓</span>
                   <span className="text-[10px] drop-shadow-sm">✓</span>
                 </span>
@@ -188,7 +195,7 @@ const MessageBubble = ({
               )}
             </div>
           )}
-          {message.isPinned && <Pin size={10} className="text-primary-content/80 fill-current ml-1" />}
+          {message.isPinned && <Pin size={10} className={`${isOwnMessage ? 'fill-primary-content' : 'fill-base-content'} ml-1`} />}
         </div>
       </div>
 

@@ -15,13 +15,6 @@ const NotificationsPage = () => {
     queryFn: getFriendRequests,
   });
 
-  // Sync store with query data to keep badges accurate across the app
-  useEffect(() => {
-    if (requestHistory?.incomingReqs) {
-      useNotificationStore.setState({ pendingRequests: requestHistory.incomingReqs });
-    }
-  }, [requestHistory]);
-
   const { mutate: acceptRequestMutation, isPending: isAccepting } = useMutation({
     mutationFn: acceptFriendRequest,
     onMutate: async (requestId) => {
@@ -33,12 +26,16 @@ const NotificationsPage = () => {
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
 
       // 3. Optimistic update
-      removeRequest(requestId); // Sync badge count
+      removeRequest(requestId); // This triggers the store update + silence period
+
       if (previousQueryData) {
-        queryClient.setQueryData(["friend-requests"], (old) => ({
-          ...old,
-          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
-        }));
+        queryClient.setQueryData(["friend-requests"], (old) => {
+          const newIncoming = (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId));
+          return {
+            ...old,
+            incomingReqs: newIncoming
+          };
+        });
       }
 
       return { previousStoreRequests, previousQueryData };
@@ -84,12 +81,16 @@ const NotificationsPage = () => {
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
 
       // 3. Optimistic update
-      removeRequest(requestId); // Sync badge count
+      removeRequest(requestId); // This triggers the store update + silence period
+
       if (previousQueryData) {
-        queryClient.setQueryData(["friend-requests"], (old) => ({
-          ...old,
-          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
-        }));
+        queryClient.setQueryData(["friend-requests"], (old) => {
+          const newIncoming = (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId));
+          return {
+            ...old,
+            incomingReqs: newIncoming
+          };
+        });
       }
 
       return { previousStoreRequests, previousQueryData };

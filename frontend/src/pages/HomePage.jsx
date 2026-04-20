@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { CheckCircleIcon, MapPinIcon, UserPlusIcon, XIcon, CheckIcon, BellOffIcon, UserMinusIcon, PinIcon, PinOffIcon } from "lucide-react";
@@ -39,10 +39,19 @@ const HomePage = () => {
     queryFn: getRecentChats,
   });
 
-  const { data: recommendedUsers = [], isLoading: loadingUsers } = useQuery({
+  const { 
+    data: recommendedData, 
+    isLoading: loadingUsers,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
     queryKey: ["users"],
     queryFn: getRecommendedUsers,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
+
+  const recommendedUsers = recommendedData?.pages.flatMap(page => page.users) || [];
 
   const { data: outgoingFriendReqs } = useQuery({
     queryKey: ["outgoingFriendReqs"],
@@ -75,12 +84,16 @@ const HomePage = () => {
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
 
       // 3. Optimistically update
-      removeRequest(requestId); // Sync badge count
+      removeRequest(requestId); // This triggers the store update + silence period
+
       if (previousQueryData) {
-        queryClient.setQueryData(["friend-requests"], (old) => ({
-          ...old,
-          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
-        }));
+        queryClient.setQueryData(["friend-requests"], (old) => {
+          const newIncoming = (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId));
+          return {
+            ...old,
+            incomingReqs: newIncoming
+          };
+        });
       }
 
       return { previousStoreRequests, previousQueryData };
@@ -131,12 +144,16 @@ const HomePage = () => {
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
 
       // 3. Optimistic update
-      removeRequest(requestId); // Sync badge count
+      removeRequest(requestId); // This triggers the store update + silence period
+
       if (previousQueryData) {
-        queryClient.setQueryData(["friend-requests"], (old) => ({
-          ...old,
-          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
-        }));
+        queryClient.setQueryData(["friend-requests"], (old) => {
+          const newIncoming = (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId));
+          return {
+            ...old,
+            incomingReqs: newIncoming
+          };
+        });
       }
 
       return { previousStoreRequests, previousQueryData };
@@ -226,7 +243,13 @@ const HomePage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentChats.map((chat) => (
-                <UserCard key={chat.id} user={chat.otherMember} chatId={chat.id} onContextMenu={(e, data) => handleContextMenu(e, data)}>
+                <UserCard 
+                  key={chat.id} 
+                  user={chat.otherMember} 
+                  chatId={chat.id} 
+                  isCallActive={chat.isCallActive}
+                  onContextMenu={(e, data) => handleContextMenu(e, data)}
+                >
                   <Link
                     to={`/collaborators?chatId=${chat.id}`}
                     className="btn btn-primary w-full btn-sm"
@@ -321,6 +344,20 @@ const HomePage = () => {
                     </UserCard>
                   );
                 })}
+              </div>
+            )}
+            
+            {hasNextPage && (
+              <div className="flex justify-center mt-8">
+                <button 
+                  onClick={() => fetchNextPage()} 
+                  disabled={isFetchingNextPage}
+                  className="btn btn-outline btn-primary px-8 rounded-full font-bold"
+                >
+                  {isFetchingNextPage ? (
+                    <><span className="loading loading-spinner loading-sm"></span> Loading...</>
+                  ) : "Load More Musicians"}
+                </button>
               </div>
             )}
           </section>

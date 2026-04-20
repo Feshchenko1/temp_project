@@ -1,9 +1,9 @@
-import { MapPinIcon, Music2Icon, GraduationCapIcon, LanguagesIcon } from "lucide-react";
+import { MapPinIcon, Music2Icon, GraduationCapIcon, LanguagesIcon, Camera } from "lucide-react";
 import { useProfileStore } from "../store/useProfileStore";
 import { useUnreadStore } from "../store/useUnreadStore";
 
 
-const UserCard = ({ user, chatId, children, onContextMenu }) => {
+const UserCard = ({ user, chatId, isCallActive, children, onContextMenu }) => {
   const openProfile = useProfileStore((state) => state.openProfile);
   const unreadData = useUnreadStore((state) => state.unreadCounts[chatId]);
   const unreadCount = typeof unreadData === "number" ? unreadData : unreadData?.count || 0;
@@ -44,9 +44,17 @@ const UserCard = ({ user, chatId, children, onContextMenu }) => {
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-lg leading-tight truncate group-hover/header:text-primary transition-colors">
-              {user.fullName}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-lg leading-tight truncate group-hover/header:text-primary transition-colors">
+                {user.fullName}
+              </h3>
+              {isCallActive && (
+                <div className="flex items-center gap-1 bg-success/10 text-success text-[10px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-md animate-pulse shrink-0 border border-success/20">
+                  <Camera className="size-2.5 fill-success/20" />
+                  <span>Live</span>
+                </div>
+              )}
+            </div>
             {user.location && (
               <div className="flex items-center text-[10px] uppercase font-bold tracking-widest opacity-50 truncate mt-1">
                 <MapPinIcon className="size-3 shrink-0 mr-1" />

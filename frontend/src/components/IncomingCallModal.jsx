@@ -1,9 +1,11 @@
 import { Phone, PhoneOff, User } from "lucide-react";
 import { useCallStore } from "../store/useCallStore";
 import { getSocket } from "../lib/socketClient";
+import { useQueryClient } from "@tanstack/react-query";
 
 const IncomingCallModal = () => {
   const { incomingCall, declineCall, acceptCall } = useCallStore();
+  const queryClient = useQueryClient();
 
   if (!incomingCall) return null;
 
@@ -14,6 +16,7 @@ const IncomingCallModal = () => {
       accepted: false,
       chatId: incomingCall.chatId
     });
+    
     declineCall();
   };
 

@@ -42,6 +42,8 @@ model User {
   chatMembers      ChatMember[]
   scores           Score[]         @relation("UserScores")
   favoriteScores   FavoriteScore[] @relation("UserFavorites")
+  tracks           Track[]         @relation("UserTracks")
+  playlists        Playlist[]      @relation("UserPlaylists")
 }
 
 model FriendRequest {
@@ -59,13 +61,14 @@ model FriendRequest {
 }
 
 model Chat {
-  id         String   @id @default(uuid())
-  isGroup    Boolean  @default(false)
-  chatType   ChatType @default(PERMANENT)
-  name       String?
-  groupImage String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(uuid())
+  isGroup      Boolean  @default(false)
+  chatType     ChatType @default(PERMANENT)
+  name         String?
+  groupImage   String?
+  activeCallId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   members   ChatMember[]
   messages  Message[]
@@ -129,7 +132,38 @@ model Track {
   title     String
   artist    String
   fileUrl   String
+  coverUrl  String?
+  userId    String
+  user      User     @relation("UserTracks", fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  playlistTracks PlaylistTrack[]
+}
+
+model Playlist {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  coverUrl    String?
+  userId      String
+  user        User     @relation("UserPlaylists", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tracks      PlaylistTrack[]
+}
+
+model PlaylistTrack {
+  id         String   @id @default(uuid())
+  playlistId String
+  trackId    String
+  addedAt    DateTime @default(now())
+
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
 }
 
 model Score {

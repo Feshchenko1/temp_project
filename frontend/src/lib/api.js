@@ -51,10 +51,11 @@ export async function getUserFriends() {
   return response.data;
 }
 
-export async function getRecommendedUsers() {
-  const response = await axiosInstance.get("/users");
-  return response.data;
-}
+export const getRecommendedUsers = async ({ pageParam = null } = {}) => {
+  const url = pageParam ? `/users?cursor=${pageParam}` : "/users";
+  const res = await axiosInstance.get(url);
+  return res.data; // Expecting { users, nextCursor }
+};
 
 export async function getUserById(userId) {
   const response = await axiosInstance.get(`/users/${userId}`);
@@ -228,4 +229,48 @@ export async function updateGroupDetails(chatId, payload) {
   const response = await axiosInstance.put(`/chats/${chatId}/details`, payload);
   return response.data;
 }
+
+export async function getTracks() {
+  const response = await axiosInstance.get("/tracks");
+  return response.data;
+}
+
+export async function createTrack(trackData) {
+  const response = await axiosInstance.post("/tracks", trackData);
+  return response.data;
+}
+
+export async function deleteTrack(id) {
+  const response = await axiosInstance.delete(`/tracks/${id}`);
+  return response.data;
+}
+
+export async function getPlaylists() {
+  const response = await axiosInstance.get("/playlists");
+  return response.data;
+}
+
+export async function createPlaylist(data) {
+  const response = await axiosInstance.post("/playlists", data);
+  return response.data;
+}
+
+export async function addTrackToPlaylist(playlistId, trackId) {
+  const response = await axiosInstance.post(`/playlists/${playlistId}/tracks/${trackId}`);
+  return response.data;
+}
+
+export async function removeTrackFromPlaylist(playlistId, trackId) {
+  const response = await axiosInstance.delete(`/playlists/${playlistId}/tracks/${trackId}`);
+  return response.data;
+}
+
+export async function deletePlaylist(id) {
+  const response = await axiosInstance.delete(`/playlists/${id}`);
+  return response.data;
+}
+
+
+
+
 

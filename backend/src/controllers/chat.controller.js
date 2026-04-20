@@ -136,6 +136,7 @@ export async function getChat(req, res) {
     }
     const formattedChat = {
       ...chat,
+      isCallActive: !!chat.activeCallId, // NEW
       isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
       members: chat.members.map(m => ({
         ...m.user,
@@ -220,6 +221,7 @@ export async function getOrCreateChat(req, res) {
 
     const formattedChat = {
       ...chat,
+      isCallActive: !!chat.activeCallId, // NEW
       isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
       members: chat.members.map(m => ({
         ...m.user,
@@ -282,6 +284,7 @@ export async function getRecentChats(req, res) {
       return {
         ...chat,
         otherMember,
+        isCallActive: !!chat.activeCallId, // NEW
         isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
         lastMessage: chat.messages[0] || null,
         members: chat.members.map(m => ({

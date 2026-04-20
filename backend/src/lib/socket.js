@@ -43,6 +43,27 @@ export const initializeSocket = (server) => {
     }
 
     socket.join(`user_${socket.userId}`);
+    
+    // Helper for global call status broadcasting
+    const broadcastCallStatus = async (chatId, isActive, activeCallId = null) => {
+      try {
+        const chat = await prisma.chat.findUnique({
+          where: { id: chatId },
+          include: { members: { select: { userId: true } } }
+        });
+        if (chat) {
+          chat.members.forEach(member => {
+            io.to(`user_${member.userId}`).emit("call:status_changed", { 
+              chatId, 
+              isActive, 
+              activeCallId 
+            });
+          });
+        }
+      } catch (err) {
+        console.error("Broadcast call status failed:", err);
+      }
+    };
 
     socket.on("join-chat", (chatId) => {
       socket.join(`chat_${chatId}`);
@@ -163,9 +184,12 @@ export const initializeSocket = (server) => {
       });
     });
 
-    socket.on("call:initiate", ({ targetUserId, chatId, callerName, isGroup }) => {
+    socket.on("call:initiate", async (data) => {
+      const { targetUserId, chatId, callerName, isGroup } = data;
+      console.log("BACKEND: Received call:initiate ->", data);
+
+      // 1. UNCONDITIONAL SIGNALING (IMMEDIATE)
       if (isGroup) {
-        // Broadcast to everyone in the chat room EXCEPT the caller
         socket.to(`chat_${chatId}`).emit("call:incoming", {
           fromUserId: socket.userId,
           callerName,
@@ -173,7 +197,6 @@ export const initializeSocket = (server) => {
           isGroupCall: true
         });
       } else {
-        // 1-on-1 behavior remains unchanged
         io.to(`user_${targetUserId}`).emit("call:incoming", {
           fromUserId: socket.userId,
           callerName,
@@ -181,9 +204,41 @@ export const initializeSocket = (server) => {
           isGroupCall: false
         });
       }
+
+      // 2. PRESENCE SECOND: Update DB and indicators
+      try {
+        await prisma.chat.update({
+          where: { id: chatId },
+          data: { activeCallId: socket.userId }
+        });
+        
+        // Global broadcast to all members individually for indicators
+        await broadcastCallStatus(chatId, true, socket.userId);
+      } catch (error) {
+        console.error("Error updating activeCallId:", error);
+      }
     });
 
-    socket.on("call:response", ({ targetUserId, accepted, chatId }) => {
+    socket.on("call:leave", async ({ chatId }) => {
+      socket.leave(`call_${chatId}`);
+      
+      // Strict room size check AFTER leaving
+      const room = io.sockets.adapter.rooms.get(`call_${chatId}`);
+      const remainingSize = room ? room.size : 0;
+
+      if (remainingSize === 0) {
+        await prisma.chat.update({
+          where: { id: chatId },
+          data: { activeCallId: null }
+        });
+        await broadcastCallStatus(chatId, false);
+      }
+    });
+
+    socket.on("call:response", async ({ targetUserId, accepted, chatId }) => {
+      // Logic Shift: Declining no longer kills the room. 
+      // The room only dies if the last person leaves (call:leave) or disconnects.
+      
       io.to(`user_${targetUserId}`).emit("call:response", {
         fromUserId: socket.userId,
         accepted,
@@ -191,13 +246,67 @@ export const initializeSocket = (server) => {
       });
     });
 
-    socket.on("disconnect", () => {
+    socket.on("call:cancel", async ({ targetUserId, chatId }) => {
+      // Cancel Path: Initiator hung up before answer
+      try {
+        await prisma.chat.update({
+          where: { id: chatId },
+          data: { activeCallId: null }
+        });
+        await broadcastCallStatus(chatId, false);
+      } catch (error) {
+        console.error("Error clearing activeCallId on cancel:", error);
+      }
+
+      io.to(`user_${targetUserId}`).emit("call:cancelled", { chatId });
+    });
+
+    socket.on("disconnect", async () => {
+      // 1. Online status cleanup
       if (socket.userId && onlineUsers.has(socket.userId)) {
         onlineUsers.get(socket.userId).delete(socket.id);
         if (onlineUsers.get(socket.userId).size === 0) {
           onlineUsers.delete(socket.userId);
         }
         io.emit("user_status_change", Array.from(onlineUsers.keys()));
+      }
+
+      // 2. Call cleanup: Check if user was in any call rooms
+      // Note: In socket.io v4, socket.rooms is cleared on disconnect.
+      // We must check the adapter for all rooms that are now empty.
+      const rooms = io.sockets.adapter.rooms;
+      for (const [roomName, room] of rooms) {
+        if (roomName.startsWith("call_")) {
+          // If the room still exists and has no more members after this disconnect
+          if (room.size === 0) {
+            const chatId = roomName.replace("call_", "");
+            await prisma.chat.update({
+              where: { id: chatId },
+              data: { activeCallId: null }
+            });
+            await broadcastCallStatus(chatId, false);
+          }
+        }
+      }
+
+      // Fallback: Check if any chat has this user as activeCallId and room is empty
+      try {
+        const chatsWithUser = await prisma.chat.findMany({
+          where: { activeCallId: socket.userId }
+        });
+
+        for (const chat of chatsWithUser) {
+          const room = io.sockets.adapter.rooms.get(`call_${chat.id}`);
+          if (!room || room.size === 0) {
+            await prisma.chat.update({
+              where: { id: chat.id },
+              data: { activeCallId: null }
+            });
+            await broadcastCallStatus(chat.id, false);
+          }
+        }
+      } catch (error) {
+        console.error("Disconnect cleanup fallback error:", error);
       }
     });
   });

@@ -6,6 +6,21 @@ export const useCallStore = create((set, get) => ({
   isInCall: false,    
   isInitiator: false, 
   ringtone: null,     
+  activeChatCalls: [], // Array of chatIds that have an active call
+
+  setActiveChatCalls: (chatIds) => set({ activeChatCalls: chatIds }),
+  
+  updateChatCallStatus: (chatId, isActive) => {
+    set((state) => {
+      const chatIds = new Set(state.activeChatCalls);
+      if (isActive) {
+        chatIds.add(chatId);
+      } else {
+        chatIds.delete(chatId);
+      }
+      return { activeChatCalls: Array.from(chatIds) };
+    });
+  },
 
   setIncomingCall: (call) => {
     if (get().isInCall) return;
@@ -30,11 +45,11 @@ export const useCallStore = create((set, get) => ({
     if (incomingCall) {
       set({
         activeCall: {
-          targetUserId: incomingCall.fromUserId, // Might be null/ignored for groups
+          targetUserId: incomingCall.fromUserId,
           targetName: incomingCall.callerName,
           chatId: incomingCall.chatId,
           callType: incomingCall.callType || "video",
-          isGroupCall: incomingCall.isGroupCall || false // NEW
+          isGroupCall: incomingCall.isGroupCall || false
         },
         incomingCall: null,
         isInitiator: false,
@@ -44,25 +59,35 @@ export const useCallStore = create((set, get) => ({
   },
 
   declineCall: () => {
-    const { ringtone } = get();
+    const { ringtone, incomingCall } = get();
     if (ringtone) {
       ringtone.pause();
       ringtone.currentTime = 0;
     }
-    set({ 
-      incomingCall: null, 
-      isInCall: false, 
-      ringtone: null 
-    });
+    
+    // Optimistic local cleanup
+    if (incomingCall) {
+      set({ 
+        incomingCall: null, 
+        isInCall: false, 
+        ringtone: null 
+      });
+    }
   },
 
-  cancelIncomingCall: () => {
+  cancelIncomingCall: (chatId) => {
     const { ringtone } = get();
     if (ringtone) {
       ringtone.pause();
       ringtone.currentTime = 0;
     }
+
+    // Optimistic local cleanup
+    const chatIds = new Set(get().activeChatCalls);
+    if (chatId) chatIds.delete(chatId);
+    
     set({ 
+      activeChatCalls: Array.from(chatIds),
       incomingCall: null, 
       isInCall: false, 
       ringtone: null 
@@ -78,11 +103,19 @@ export const useCallStore = create((set, get) => ({
   },
 
   endCall: () => {
-    const { ringtone } = get();
+    const { ringtone, activeCall } = get();
     if (ringtone) {
       ringtone.pause();
       ringtone.currentTime = 0;
     }
+
+    // Optimistic local cleanup
+    if (activeCall) {
+      const chatIds = new Set(get().activeChatCalls);
+      chatIds.delete(activeCall.chatId);
+      set({ activeChatCalls: Array.from(chatIds) });
+    }
+
     set({ 
       activeCall: null, 
       incomingCall: null, 

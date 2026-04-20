@@ -7,25 +7,87 @@ export const useAudioStore = create(
       currentTrack: null,
       isPlaying: false,
       volume: 0.7,
-      isLooping: false,
+      loopMode: 0, // 0: Off, 1: Loop Queue, 2: Loop Track
+      isShuffled: false,
       currentTime: 0,
       duration: 0,
       seekTo: null,
+      
+      queue: [],
+      originalQueue: [],
+      currentIndex: -1,
+      contextId: null,
+
+      playContext: (tracks, startIndex = 0, contextId = null) => {
+        if (!tracks || tracks.length === 0) return;
+        
+        const track = tracks[startIndex];
+        set({ 
+          queue: tracks, 
+          originalQueue: tracks, 
+          currentIndex: startIndex, 
+          currentTrack: track, 
+          contextId, 
+          isPlaying: true, 
+          currentTime: 0 
+        });
+      },
 
       playTrack: (score) => {
-        const { currentTrack } = get();
+        const { currentTrack, isPlaying } = get();
         
-        // If no score provided, do nothing
         if (!score) return;
 
-        // If it's already the current track, just ensure it's playing
+        // If it's already the current track, just toggle/ensure it's playing
         if (currentTrack?.id === score.id) {
           set({ isPlaying: true });
           return;
         }
 
-        // Set new track and start playing
-        set({ currentTrack: score, isPlaying: true, currentTime: 0 });
+        // Use playContext for backward compatibility
+        get().playContext([score], 0, "single");
+      },
+
+      playNext: () => {
+        const { queue, currentIndex, loopMode } = get();
+        if (queue.length === 0) return;
+        
+        let nextIndex = currentIndex + 1;
+        
+        if (nextIndex >= queue.length) {
+          if (loopMode === 1) {
+            nextIndex = 0; // Loop entire queue
+          } else {
+            get().stopTrack(); // End of queue reaches
+            return;
+          }
+        }
+        
+        set({ 
+          currentIndex: nextIndex, 
+          currentTrack: queue[nextIndex], 
+          isPlaying: true, 
+          currentTime: 0 
+        });
+      },
+
+      playPrev: () => {
+        const { queue, currentIndex, currentTime } = get();
+        if (queue.length === 0) return;
+        
+        // If track played for more than 3 seconds, restart it (Standard behavior)
+        if (currentTime > 3) {
+          set({ seekTo: 0, currentTime: 0 });
+          return;
+        }
+        
+        const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+        set({ 
+          currentIndex: prevIndex, 
+          currentTrack: queue[prevIndex], 
+          isPlaying: true, 
+          currentTime: 0 
+        });
       },
 
       togglePlayPause: () => {
@@ -39,9 +101,23 @@ export const useAudioStore = create(
         set({ volume: clampedLevel });
       },
 
-      toggleLoop: () => set((state) => ({ isLooping: !state.isLooping })),
+      toggleLoopMode: () => {
+        set((state) => ({ loopMode: (state.loopMode + 1) % 3 }));
+      },
 
-      stopTrack: () => set({ currentTrack: null, isPlaying: false, currentTime: 0, duration: 0 }),
+      toggleShuffle: () => {
+        set((state) => ({ isShuffled: !state.isShuffled }));
+      },
+
+      stopTrack: () => set({ 
+        currentTrack: null, 
+        isPlaying: false, 
+        currentTime: 0, 
+        duration: 0,
+        queue: [],
+        currentIndex: -1,
+        contextId: null
+      }),
 
       setCurrentTime: (time) => set({ currentTime: time }),
       setDuration: (duration) => set({ duration }),
@@ -52,7 +128,8 @@ export const useAudioStore = create(
       name: "harmonix-audio-settings",
       partialize: (state) => ({
         volume: state.volume,
-        isLooping: state.isLooping,
+        loopMode: state.loopMode,
+        isShuffled: state.isShuffled,
       }),
     }
   )

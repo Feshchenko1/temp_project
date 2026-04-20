@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { UsersIcon, MessageSquareIcon, SearchIcon, PlusIcon, BellOffIcon, LogOutIcon, UserMinusIcon, PinIcon, PinOffIcon } from "lucide-react";
+import { UsersIcon, MessageSquareIcon, SearchIcon, PlusIcon, BellOffIcon, LogOutIcon, UserMinusIcon, PinIcon, PinOffIcon, Video } from "lucide-react";
+import { useCallStore } from "../store/useCallStore";
 import { useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRecentChats, markChatAsRead, toggleMuteChat, leaveChat, removeFriend, togglePinChatNavbar } from "../lib/api";
@@ -21,6 +22,7 @@ const CollaboratorsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedChatId, setSelectedChatId] = useState(chatId);
   const { onlineUserIds } = useLayoutStore();
+  const activeChatCalls = useCallStore((state) => state.activeChatCalls);
   const { unreadCounts, setActiveChatId, clearCount, toggleMuteOptimistic, removeChatOptimistic } = useUnreadStore();
   const queryClient = useQueryClient();
   const { contextMenu, handleContextMenu, closeContextMenu } = useContextMenu();
@@ -220,9 +222,12 @@ const CollaboratorsPage = () => {
 
                       <div className="flex-1 text-left min-w-0">
                         <div className="flex justify-between items-start mb-0.5">
-                          <p className={`font-bold truncate flex items-center gap-1 ${selectedChatId === chat.id ? "" : "text-base-content"}`}>
+                          <p className={`font-bold truncate flex items-center gap-1.5 ${selectedChatId === chat.id ? "" : "text-base-content"}`}>
                             {chat.isGroup ? chat.name : chat.otherMember?.fullName}
                             {isMuted && <BellOffIcon className="size-3 opacity-50" />}
+                            {activeChatCalls.includes(chat.id) && (
+                              <Video className="size-3.5 text-success animate-pulse shrink-0 fill-success/10" />
+                            )}
                           </p>
                           {chat.lastMessage && (
                             <span className={`text-[10px] ${selectedChatId === chat.id ? "opacity-70" : "opacity-40"}`}>

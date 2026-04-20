@@ -32,33 +32,40 @@ export async function getUserById(req, res) {
 export async function getRecommendedUsers(req, res) {
   try {
     const currentUserId = req.user.id;
-    
+    const cursor = req.query.cursor;
+    const take = 12; // 4 rows of 3 columns
+
     const currentUser = await prisma.user.findUnique({
       where: { id: currentUserId },
-      include: { friends: true }
+      include: { friends: { select: { id: true } } }
     });
-    
     const friendIds = currentUser.friends.map(f => f.id);
 
-    const recommendedUsers = await prisma.user.findMany({
+    const queryOptions = {
+      take,
       where: {
         id: { notIn: [currentUserId, ...friendIds] },
         isOnboarded: true,
       },
       select: {
-        id: true,
-        fullName: true,
-        profilePic: true,
-        instrumentsKnown: true,
-        instrumentsToLearn: true,
-        spokenLanguages: true,
-        location: true,
-        bio: true,
-      }
-    });
-    
-    res.status(200).json(recommendedUsers);
+        id: true, fullName: true, profilePic: true,
+        instrumentsKnown: true, instrumentsToLearn: true,
+        spokenLanguages: true, location: true, bio: true,
+      },
+      orderBy: { createdAt: 'desc' } // Crucial for stable cursors
+    };
+
+    if (cursor) {
+      queryOptions.cursor = { id: cursor };
+      queryOptions.skip = 1;
+    }
+
+    const users = await prisma.user.findMany(queryOptions);
+    const nextCursor = users.length === take ? users[take - 1].id : null;
+
+    res.status(200).json({ users, nextCursor });
   } catch (error) {
+    console.error("Error in getRecommendedUsers", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
