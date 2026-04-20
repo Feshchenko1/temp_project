@@ -11,7 +11,10 @@ import {
   Calendar,
   Pencil,
   Loader2,
+  Play,
+  Pause,
 } from "lucide-react";
+import { useAudioStore } from "../store/useAudioStore";
 import { format } from "date-fns";
 import PdfPreview from "./PdfPreview";
 import { useState } from "react";
@@ -29,6 +32,9 @@ const ScoreCard = ({ score, onEdit }) => {
   const { authUser } = useAuthUser();
   const [detectedPages, setDetectedPages] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const { playTrack, togglePlayPause, currentTrack, isPlaying } = useAudioStore();
+  const isThisTrackPlaying = currentTrack?.id === score.id && isPlaying;
 
   const isOwner = score.userId === authUser?.id;
   const favoritesCount = score._count?.favoritedBy || 0;
@@ -102,6 +108,15 @@ const ScoreCard = ({ score, onEdit }) => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+          {score.audioUrl && (
+            <button
+              onClick={() => isThisTrackPlaying ? togglePlayPause() : playTrack(score)}
+              className={`btn btn-square btn-sm backdrop-blur-md transition-all ${isThisTrackPlaying ? 'bg-primary text-primary-content hover:bg-primary/80 shadow-lg shadow-primary/20' : 'bg-base-100/80 text-base-content hover:btn-primary border-none shadow-md'}`}
+              aria-label="Play Track"
+            >
+              {isThisTrackPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+            </button>
+          )}
           <button onClick={handleView} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-primary transition-all" aria-label="Open PDF">
             <ExternalLink size={16} />
           </button>

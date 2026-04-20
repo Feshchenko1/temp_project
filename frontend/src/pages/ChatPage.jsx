@@ -4,6 +4,8 @@ import SecureChat from "../components/SecureChat";
 import useAuthUser from "../hooks/useAuthUser";
 import { getOrCreateChatByUserId } from "../lib/api";
 import { Loader2 } from "lucide-react";
+import { useUnreadStore } from "../store/useUnreadStore";
+
 
 const ChatPage = () => {
   const { id: targetUserId } = useParams();
@@ -25,6 +27,15 @@ const ChatPage = () => {
 
     if (targetUserId) fetchChat();
   }, [targetUserId]);
+
+  useEffect(() => {
+    if (chat?.id) {
+      useUnreadStore.getState().setActiveChatId(chat.id);
+    }
+    return () => {
+      useUnreadStore.getState().setActiveChatId(null);
+    };
+  }, [chat?.id]);
 
   if (isLoading) {
     return (

@@ -4,49 +4,118 @@ import { BellIcon, ClockIcon, MessageSquareIcon, UserCheckIcon, XIcon, CheckIcon
 import NoNotificationsFound from "../components/NoNotificationsFound";
 import { useNotificationStore } from "../store/useNotificationStore";
 import { useEffect } from "react";
+import toast from "react-hot-toast";
 
 const NotificationsPage = () => {
   const queryClient = useQueryClient();
   const { pendingRequests, removeRequest, fetchRequests } = useNotificationStore();
 
   const { data: requestHistory, isLoading: isLoadingHistory } = useQuery({
-    queryKey: ["friendRequests"],
+    queryKey: ["friend-requests"],
     queryFn: getFriendRequests,
   });
 
+  // Sync store with query data to keep badges accurate across the app
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+    if (requestHistory?.incomingReqs) {
+      useNotificationStore.setState({ pendingRequests: requestHistory.incomingReqs });
+    }
+  }, [requestHistory]);
 
   const { mutate: acceptRequestMutation, isPending: isAccepting } = useMutation({
     mutationFn: acceptFriendRequest,
-    onMutate: (requestId) => {
-      removeRequest(requestId);
+    onMutate: async (requestId) => {
+      // 1. Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
+
+      // 2. Snapshot current state
+      const previousStoreRequests = useNotificationStore.getState().pendingRequests;
+      const previousQueryData = queryClient.getQueryData(["friend-requests"]);
+
+      // 3. Optimistic update
+      removeRequest(requestId); // Sync badge count
+      if (previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], (old) => ({
+          ...old,
+          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
+        }));
+      }
+
+      return { previousStoreRequests, previousQueryData };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      toast.success("Friend request accepted!");
+      if (data?.chat) {
+        queryClient.setQueryData(["recent-chats"], (oldChats) => {
+          const currentChats = oldChats || [];
+          // Prevent duplicates
+          if (currentChats.some(c => c.id === data.chat.id)) return currentChats;
+          // Inject at the top of the list
+          return [data.chat, ...currentChats];
+        });
+      }
+    },
+    onError: (err, requestId, context) => {
+      // 4. Rollback
+      if (context?.previousStoreRequests) {
+        useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
+      }
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], context.previousQueryData);
+      }
+      toast.error("Failed to accept friend request");
+    },
+    onSettled: () => {
+      // 5. Invalidate
       queryClient.invalidateQueries({ queryKey: ["friends"] });
-      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
-    },
-    onError: () => {
-      fetchRequests();
+      queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
     }
   });
 
   const { mutate: rejectRequestMutation, isPending: isRejecting } = useMutation({
     mutationFn: rejectFriendRequest,
-    onMutate: (requestId) => {
-      removeRequest(requestId);
+    onMutate: async (requestId) => {
+      // 1. Cancel
+      await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
+
+      // 2. Snapshot
+      const previousStoreRequests = useNotificationStore.getState().pendingRequests;
+      const previousQueryData = queryClient.getQueryData(["friend-requests"]);
+
+      // 3. Optimistic update
+      removeRequest(requestId); // Sync badge count
+      if (previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], (old) => ({
+          ...old,
+          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
+        }));
+      }
+
+      return { previousStoreRequests, previousQueryData };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
+      toast.success("Friend request rejected");
     },
-    onError: () => {
-      fetchRequests();
+    onError: (err, requestId, context) => {
+      // 4. Rollback
+      if (context?.previousStoreRequests) {
+        useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
+      }
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], context.previousQueryData);
+      }
+      toast.error("Failed to reject friend request");
+    },
+    onSettled: () => {
+      // 5. Invalidate
+      queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
     }
   });
 
   const isPending = isAccepting || isRejecting;
   const acceptedRequests = requestHistory?.acceptedReqs || [];
+  const displayRequests = requestHistory?.incomingReqs || [];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -56,9 +125,9 @@ const NotificationsPage = () => {
             <h1 className="text-3xl font-bold tracking-tight">Activity</h1>
             <p className="text-base-content/60 mt-1">Manage your connections and incoming requests.</p>
           </div>
-          {pendingRequests.length > 0 && (
+          {displayRequests.length > 0 && (
             <span className="badge badge-error gap-2 py-4 px-5 font-bold animate-pulse">
-              {pendingRequests.length} New
+              {displayRequests.length} New
             </span>
           )}
         </div>
@@ -72,9 +141,9 @@ const NotificationsPage = () => {
             Pending Friend Requests
           </h2>
 
-          {pendingRequests.length > 0 ? (
+          {displayRequests.length > 0 ? (
             <div className="grid gap-4">
-              {pendingRequests.map((request) => (
+              {displayRequests.map((request) => (
                 <div
                   key={request.id}
                   className="card bg-base-200 border border-base-300 hover:border-primary/40 transition-all duration-300 group shadow-sm hover:shadow-md"

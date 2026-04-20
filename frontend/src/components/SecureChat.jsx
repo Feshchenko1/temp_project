@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Lock, Send, ShieldAlert, Video, Paperclip, LoaderIcon, Smile, Reply, Pin, Copy, ArrowRight, Pencil, Trash2, PinOff, XCircle } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Lock, Send, Video, Paperclip, LoaderIcon, Smile, Reply, Pin, Copy, ArrowRight, Pencil, Trash2, PinOff, XCircle, UsersIcon } from "lucide-react";
 import { useLayoutStore } from "../store/useLayoutStore";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { connectSocket } from "../lib/socketClient";
 import toast from "react-hot-toast";
 import EmojiPicker from "emoji-picker-react";
@@ -9,7 +11,9 @@ import MessageAttachment from "./MessageAttachment";
 import MessageBubble from "./MessageBubble";
 import VideoCallOverlay from "./VideoCallOverlay";
 import ForwardModal from "./ForwardModal";
+import GroupSettingsModal from "./GroupSettingsModal";
 import { useCallStore } from '../store/useCallStore';
+import useAuthUser from "../hooks/useAuthUser";
 
 import {
   encryptMessage,
@@ -44,6 +48,7 @@ import {
 } from "../lib/api";
 
 const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -53,12 +58,20 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
   const [replyTo, setReplyTo] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [chatInfo, setChatInfo] = useState(null);
+  
+  const { data: chatInfo } = useQuery({
+    queryKey: ["chat", chatId],
+    queryFn: () => getChatDetails(chatId),
+    enabled: !!chatId,
+    staleTime: 0 
+  });
+
   const pinnedMessages = messages.filter(m => m.isPinned);
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
   const [highlightedMsgId, setHighlightedMsgId] = useState(null);
+  const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
 
 
   const [aesKey, setAesKey] = useState(null);
@@ -111,8 +124,9 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
         if (currentChatIdRef.current !== processId) return;
 
         setMessages(history);
-        setChatInfo(info);
         setIsLoading(false);
+        
+        // info is now available for the following crypto logic without being stored in state
 
         if (isRegeneratingRef.current) return;
 
@@ -229,7 +243,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     joinRoom();
     socket.current.on("connect", joinRoom);
 
-    socket.current.on("receive_message", (data) => {
+    socket.current.on("newMessage", (data) => {
       if (data.chatId !== processId) return;
       setMessages((prev) => {
         if (data.clientSideId) {
@@ -282,7 +296,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
     return () => {
       socket.current.emit("leave-chat", processId);
       socket.current.off("connect", joinRoom);
-      socket.current.off("receive_message");
+      socket.current.off("newMessage");
       socket.current.off("messages_read");
       socket.current.off("message_deleted");
       socket.current.off("message_updated");
@@ -619,20 +633,29 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
 
   const [pendingFile, setPendingFile] = useState(null);
   const { initiateCall } = useCallStore();
+  const { authUser } = useAuthUser();
 
   const handleStartCall = () => {
-    initiateCall({
-      targetUserId,
-      targetName: targetUserName,
+    const isGroupChat = !!chatInfo?.isGroup;
+    
+    const callPayload = {
+      targetUserId: isGroupChat ? null : targetUserId,
+      targetName: isGroupChat ? (chatInfo?.name || "Group Collaboration") : targetUserName,
       chatId,
-      callType: "video"
-    });
+      callType: "video",
+      isGroup: isGroupChat,
+      isGroupCall: isGroupChat
+    };
 
-    socket.current.emit("call:initiate", {
-      targetUserId,
+    const socketPayload = {
+      targetUserId: isGroupChat ? null : targetUserId,
       chatId,
-      callerName: "Studio Peer"
-    });
+      callerName: authUser?.fullName || "Studio Peer",
+      isGroup: isGroupChat
+    };
+
+    socket.current.emit("call:initiate", socketPayload);
+    initiateCall(callPayload);
   };
 
   useEffect(() => {
@@ -674,20 +697,45 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       {/* Header */}
       <div className="bg-base-100 p-4 border-b border-white/10 flex justify-between items-center bg-opacity-80 backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-success/20 text-success rounded-lg">
-            <Lock size={20} />
+          <div className="avatar">
+            <div className="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center overflow-hidden border border-white/5">
+              {chatInfo?.isGroup ? (
+                chatInfo.groupImage ? (
+                  <img src={chatInfo.groupImage} alt={chatInfo.name} className="size-full object-cover" />
+                ) : (
+                  <UsersIcon className="size-5 text-base-content/70" />
+                )
+              ) : (
+                <img 
+                  src={chatInfo?.members?.find(m => m.id !== currentUserId)?.profilePic || "/avatar-placeholder.png"} 
+                  alt="Avatar" 
+                  className="size-full object-cover"
+                />
+              )}
+            </div>
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-lg">{targetUserName || "Secure Channel"}</h3>
-              <div className={`size-2.5 rounded-full ${isPeerOnline ? "bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-base-content/20"}`} />
+              {(!chatInfo?.isGroup) && (
+                <div className={`size-2.5 rounded-full ${isPeerOnline ? "bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-base-content/20"}`} />
+              )}
             </div>
             <p className="text-xs opacity-60 flex items-center gap-1">
-              {isPeerOnline ? "Live Session" : "End-to-End Encrypted"}
+              {chatInfo?.isGroup ? `${chatInfo.members?.length || 0} collaborators` : (isPeerOnline ? "Live Session" : "End-to-End Encrypted")}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {chatInfo?.isGroup && (
+            <button
+              onClick={() => setIsGroupSettingsOpen(true)}
+              className="btn btn-ghost btn-sm btn-circle"
+              title="Group info"
+            >
+              <UsersIcon className="size-5 opacity-60" />
+            </button>
+          )}
           {chatInfo?.isEphemeral && (
             <button
               onClick={handleEndSession}
@@ -704,14 +752,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
             title="Start Collaboration Call"
           >
             <Video size={20} />
-          </button>
-          <button
-            onClick={() => handleRotateAESOnly(false)}
-            className={`btn btn-circle btn-ghost ${cryptoError ? 'text-error animate-pulse' : 'text-primary'} hover:bg-primary/10`}
-            title="Rotate Session Key"
-            disabled={isKeyInitializing}
-          >
-            {isKeyInitializing ? <LoaderIcon className="animate-spin" size={20} /> : <ShieldAlert size={20} />}
           </button>
         </div>
       </div>
@@ -832,6 +872,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
                   setTimeout(() => setHighlightedMsgId(null), 2000);
                 }
               }}
+              isGroup={chatInfo?.isGroup}
             />
           ))
         )}
@@ -959,6 +1000,19 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
         onForward={handleForwardConfirm}
         originalMessage={messageToForward}
       />
+
+      {isGroupSettingsOpen && (
+        <GroupSettingsModal
+          chatId={chatId}
+          currentUserId={currentUserId}
+          onClose={(shouldRedirect) => {
+            setIsGroupSettingsOpen(false);
+            if (shouldRedirect) {
+              navigate("/"); // Re-route to base collaborators list
+            }
+          }}
+        />
+      )}
     </div>
 
 

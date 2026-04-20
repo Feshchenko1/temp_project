@@ -16,9 +16,10 @@ export const useNotificationStore = create((set, get) => ({
     await get().fetchRequests();
   },
 
+  // removeRequest is used for immediate optimistic feedback on badges
   removeRequest: (requestId) => {
     set((state) => ({
-      pendingRequests: state.pendingRequests.filter(r => r.id !== requestId)
+      pendingRequests: state.pendingRequests.filter(r => String(r.id) !== String(requestId))
     }));
   },
 

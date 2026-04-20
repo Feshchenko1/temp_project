@@ -1,7 +1,102 @@
 import { prisma } from "../lib/db.js";
 import { deleteFile } from "../lib/s3.js";
 import { getIo } from "../lib/socket.js";
+import { uploadBase64Image } from "../lib/upload.js";
 
+
+export async function createGroupChat(req, res) {
+  try {
+    const { name, memberIds, groupKeys, groupImage } = req.body;
+    const currentUserId = req.user.id;
+
+    if (!name || !memberIds || !Array.isArray(memberIds) || memberIds.length < 2) {
+      return res.status(400).json({ message: "Invalid payload: need a name and at least 2 members" });
+    }
+
+    if (!memberIds.includes(currentUserId)) {
+      return res.status(400).json({ message: "Creator must be a member of the group" });
+    }
+
+    if (!groupKeys || !Array.isArray(groupKeys)) {
+      return res.status(400).json({ message: "Group keys are required for E2EE" });
+    }
+
+    let imageUrl = null;
+    if (groupImage) {
+      imageUrl = await uploadBase64Image(groupImage, "groups");
+    }
+
+    const newChat = await prisma.$transaction(async (tx) => {
+      const chat = await tx.chat.create({
+        data: {
+          isGroup: true,
+          name,
+          groupImage: imageUrl,
+          chatType: "PERMANENT",
+          members: {
+            create: memberIds.map(userId => ({
+              userId,
+              role: userId === currentUserId ? "ADMIN" : "MEMBER"
+            }))
+          }
+        },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  profilePic: true,
+                  publicKey: true,
+                  bio: true,
+                  location: true,
+                  instrumentsKnown: true,
+                  instrumentsToLearn: true,
+                  spokenLanguages: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      await tx.groupKey.createMany({
+        data: groupKeys.map(k => ({
+          chatId: chat.id,
+          senderId: currentUserId,
+          recipientId: k.recipientId,
+          encryptedAesKey: k.encryptedKey || k.encryptedAesKey,
+        }))
+      });
+
+      return chat;
+    });
+
+    const formattedChat = {
+      ...newChat,
+      members: newChat.members.map(m => ({
+        ...m.user,
+        role: m.role,
+        joinedAt: m.joinedAt
+      }))
+    };
+
+    const io = getIo();
+    if (io) {
+      memberIds.forEach(userId => {
+        if (userId !== currentUserId) {
+          io.to(`user_${userId}`).emit("new_group_chat", formattedChat);
+        }
+      });
+    }
+
+    res.status(201).json(formattedChat);
+  } catch (error) {
+    console.error("Error in createGroupChat:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
 
 export async function getChat(req, res) {
   try {
@@ -41,9 +136,11 @@ export async function getChat(req, res) {
     }
     const formattedChat = {
       ...chat,
+      isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
       members: chat.members.map(m => ({
         ...m.user,
         role: m.role,
+        isPinnedToNavbar: m.isPinnedToNavbar,
         joinedAt: m.joinedAt
       }))
     };
@@ -123,9 +220,11 @@ export async function getOrCreateChat(req, res) {
 
     const formattedChat = {
       ...chat,
+      isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
       members: chat.members.map(m => ({
         ...m.user,
         role: m.role,
+        isPinnedToNavbar: m.isPinnedToNavbar,
         joinedAt: m.joinedAt
       }))
     };
@@ -172,7 +271,7 @@ export async function getRecentChats(req, res) {
       orderBy: {
         updatedAt: "desc"
       },
-      take: 8
+      take: 50
     });
 
     const formattedChats = chats.map(chat => {
@@ -183,10 +282,12 @@ export async function getRecentChats(req, res) {
       return {
         ...chat,
         otherMember,
+        isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
         lastMessage: chat.messages[0] || null,
         members: chat.members.map(m => ({
           ...m.user,
           role: m.role,
+          isPinnedToNavbar: m.isPinnedToNavbar,
           joinedAt: m.joinedAt
         }))
       };
@@ -454,10 +555,21 @@ export async function getUnreadCounts(req, res) {
       }
     });
 
-    const counts = unreadMessages.reduce((acc, curr) => {
-      acc[curr.chatId] = curr._count.id;
-      return acc;
-    }, {});
+    const memberships = await prisma.chatMember.findMany({
+      where: { userId: currentUserId },
+      select: { chatId: true, isMuted: true }
+    });
+
+    const counts = {};
+    for (const m of memberships) {
+      counts[m.chatId] = { count: 0, isMuted: m.isMuted };
+    }
+
+    for (const msg of unreadMessages) {
+      if (counts[msg.chatId]) {
+        counts[msg.chatId].count = msg._count.id;
+      }
+    }
 
     res.status(200).json(counts);
   } catch (error) {
@@ -504,3 +616,329 @@ export async function markChatAsRead(req, res) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
+
+export async function toggleMuteChat(req, res) {
+  try {
+    const { id: chatId } = req.params;
+    const currentUserId = req.user.id;
+
+    const membership = await prisma.chatMember.findUnique({
+      where: {
+        chatId_userId: { chatId, userId: currentUserId }
+      }
+    });
+
+    if (!membership) {
+      return res.status(403).json({ message: "Not a member of this chat" });
+    }
+
+    const updated = await prisma.chatMember.update({
+      where: {
+        chatId_userId: { chatId, userId: currentUserId }
+      },
+      data: {
+        isMuted: !membership.isMuted
+      }
+    });
+
+    res.status(200).json({ message: "Mute status updated", isMuted: updated.isMuted });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function togglePinChat(req, res) {
+  try {
+    const { id: chatId } = req.params;
+    const currentUserId = req.user.id;
+
+    const membership = await prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId: currentUserId } }
+    });
+
+    if (!membership) return res.status(403).json({ message: "Not a member" });
+
+    const updated = await prisma.chatMember.update({
+      where: { chatId_userId: { chatId, userId: currentUserId } },
+      data: { isPinnedToNavbar: !membership.isPinnedToNavbar }
+    });
+
+    res.status(200).json({ message: "Pin status updated", isPinnedToNavbar: updated.isPinnedToNavbar });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function leaveChat(req, res) {
+  try {
+    const { id: chatId } = req.params;
+    const currentUserId = req.user.id;
+
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: { members: true }
+    });
+
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+    const isMember = chat.members.some(m => m.userId === currentUserId);
+    if (!isMember) return res.status(403).json({ message: "Not a member of this chat" });
+
+    await prisma.chatMember.delete({
+      where: {
+        chatId_userId: { chatId, userId: currentUserId }
+      }
+    });
+
+    if (!chat.isGroup || chat.members.length === 1) {
+      const remainingMembers = chat.members.length - 1;
+      if (remainingMembers === 0) {
+        await prisma.chat.delete({ where: { id: chatId } });
+      }
+    }
+
+    res.status(200).json({ message: "Left chat successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function addGroupMembers(req, res) {
+  try {
+    const { id: chatId } = req.params;
+    const { memberIds, groupKeys } = req.body;
+    const currentUserId = req.user.id;
+
+    if (!memberIds || !Array.isArray(memberIds) || !groupKeys || !Array.isArray(groupKeys)) {
+      return res.status(400).json({ message: "Invalid payload: need memberIds and groupKeys" });
+    }
+
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: { members: true }
+    });
+
+    if (!chat || !chat.isGroup) {
+      return res.status(404).json({ message: "Group chat not found" });
+    }
+
+    const isMember = chat.members.some(m => m.userId === currentUserId);
+    if (!isMember) {
+      return res.status(403).json({ message: "Unauthorized: must be a member to add others" });
+    }
+
+    const newMembers = await prisma.$transaction(async (tx) => {
+      const existingUserIds = chat.members.map(m => m.userId);
+      const uniqueNewMemberIds = memberIds.filter(id => !existingUserIds.includes(id));
+
+      if (uniqueNewMemberIds.length === 0) return [];
+
+      await tx.chatMember.createMany({
+        data: uniqueNewMemberIds.map(userId => ({
+          chatId,
+          userId,
+          role: "MEMBER"
+        }))
+      });
+
+      // P2002 Bugfix: Clean up any stale keys for these recipients in this chat before adding new ones
+      await tx.groupKey.deleteMany({
+        where: {
+          chatId,
+          recipientId: { in: uniqueNewMemberIds }
+        }
+      });
+
+      await tx.groupKey.createMany({
+        data: groupKeys
+          .filter(k => uniqueNewMemberIds.includes(k.recipientId))
+          .map(k => ({
+            chatId,
+            senderId: currentUserId,
+            recipientId: k.recipientId,
+            encryptedAesKey: k.encryptedKey || k.encryptedAesKey
+          }))
+      });
+
+      return uniqueNewMemberIds;
+    });
+
+    if (newMembers.length > 0) {
+      const updatedChat = await prisma.chat.findUnique({
+        where: { id: chatId },
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  profilePic: true,
+                  publicKey: true,
+                  bio: true,
+                  location: true,
+                  instrumentsKnown: true,
+                  instrumentsToLearn: true,
+                  spokenLanguages: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      const formattedChat = {
+        ...updatedChat,
+        members: updatedChat.members.map(m => ({
+          ...m.user,
+          role: m.role,
+          joinedAt: m.joinedAt
+        }))
+      };
+
+      const io = getIo();
+      if (io) {
+        newMembers.forEach(userId => {
+          io.to(`user_${userId}`).emit("new_group_chat", formattedChat);
+        });
+        io.to(`chat_${chatId}`).emit("group_members_added", {
+          chatId,
+          newMembers: formattedChat.members.filter(m => newMembers.includes(m.id))
+        });
+      }
+    }
+
+    res.status(200).json({ message: `${newMembers.length} members added successfully`, addedCount: newMembers.length });
+  } catch (error) {
+    console.error("Error in addGroupMembers:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function removeGroupMember(req, res) {
+  try {
+    const { id: chatId, memberId: memberIdToRemove } = req.params;
+    const currentUserId = req.user.id;
+
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: { members: true }
+    });
+
+    if (!chat || !chat.isGroup) {
+      return res.status(404).json({ message: "Group chat not found" });
+    }
+
+    const requesterMember = chat.members.find(m => m.userId === currentUserId);
+    if (!requesterMember) {
+      return res.status(403).json({ message: "Not a member of this chat" });
+    }
+
+    const isRequesterAdmin = requesterMember.role === "ADMIN";
+    const isSelfRemoval = currentUserId === memberIdToRemove;
+
+    if (!isRequesterAdmin && !isSelfRemoval) {
+      return res.status(403).json({ message: "Unauthorized: only Admins can remove members" });
+    }
+
+    const memberExists = chat.members.some(m => m.userId === memberIdToRemove);
+    if (!memberExists) {
+      return res.status(404).json({ message: "Target member is not in this group" });
+    }
+
+    await prisma.$transaction([
+      prisma.chatMember.delete({
+        where: {
+          chatId_userId: { chatId, userId: memberIdToRemove }
+        }
+      }),
+      prisma.groupKey.deleteMany({
+        where: {
+          chatId,
+          recipientId: memberIdToRemove
+        }
+      })
+    ]);
+
+    const io = getIo();
+    if (io) {
+      io.to(`user_${memberIdToRemove}`).emit("removed_from_group", { chatId });
+      io.to(`user_${memberIdToRemove}`).emit("chat_deleted", { chatId });
+      io.to(`chat_${chatId}`).emit("group_member_removed", { chatId, userId: memberIdToRemove });
+    }
+
+    // Phantom Chat Cleanup: If no members left, delete the chat
+    const remainingMembersCount = await prisma.chatMember.count({
+      where: { chatId }
+    });
+
+    if (remainingMembersCount === 0) {
+      await prisma.chat.delete({
+        where: { id: chatId }
+      });
+      console.log(`Chat ${chatId} deleted as it has no members remaining.`);
+    }
+
+    res.status(200).json({ message: "Member removed successfully" });
+  } catch (error) {
+    console.error("Error in removeGroupMember:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function updateGroupDetails(req, res) {
+  try {
+    const { id: chatId } = req.params;
+    const { name, groupImage } = req.body;
+    const currentUserId = req.user.id;
+
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        members: true
+      }
+    });
+
+    if (!chat || !chat.isGroup) {
+      return res.status(404).json({ message: "Group chat not found" });
+    }
+
+    const requesterMember = chat.members.find(m => m.userId === currentUserId);
+    if (!requesterMember || requesterMember.role !== "ADMIN") {
+      return res.status(403).json({ message: "Unauthorized: Only Admins can edit group details" });
+    }
+
+    let updatedImageUrl = chat.groupImage;
+    if (groupImage && groupImage !== chat.groupImage) {
+      // Check if it's new base64 data
+      if (groupImage.startsWith("data:")) {
+        updatedImageUrl = await uploadBase64Image(groupImage, "group-avatars");
+      } else {
+        updatedImageUrl = groupImage;
+      }
+    }
+
+    const updatedChat = await prisma.chat.update({
+      where: { id: chatId },
+      data: {
+        name: name || chat.name,
+        groupImage: updatedImageUrl
+      }
+    });
+
+    const io = getIo();
+    if (io) {
+      io.to(`chat_${chatId}`).emit("group_details_updated", {
+        chatId,
+        name: updatedChat.name,
+        groupImage: updatedChat.groupImage
+      });
+    }
+
+    res.status(200).json(updatedChat);
+  } catch (error) {
+    console.error("Error in updateGroupDetails:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+

@@ -3,9 +3,11 @@ import { useProfileStore } from "../store/useProfileStore";
 import { useUnreadStore } from "../store/useUnreadStore";
 
 
-const UserCard = ({ user, chatId, children }) => {
+const UserCard = ({ user, chatId, children, onContextMenu }) => {
   const openProfile = useProfileStore((state) => state.openProfile);
-  const unreadCount = useUnreadStore((state) => state.unreadCounts[chatId] || 0);
+  const unreadData = useUnreadStore((state) => state.unreadCounts[chatId]);
+  const unreadCount = typeof unreadData === "number" ? unreadData : unreadData?.count || 0;
+  const isMuted = typeof unreadData === "object" ? unreadData?.isMuted : false;
 
   if (!user) return null;
 
@@ -19,10 +21,13 @@ const UserCard = ({ user, chatId, children }) => {
   const moreLanguages = (user.spokenLanguages?.length || 0) - 1;
 
   return (
-    <div className="card bg-base-200 hover:shadow-xl transition-all duration-500 border border-base-300 h-[220px] group overflow-hidden relative">
+    <div 
+      className="card bg-base-200 hover:shadow-xl transition-all duration-500 border border-base-300 h-[220px] group overflow-hidden relative"
+      onContextMenu={(e) => onContextMenu && onContextMenu(e, { user, chatId })}
+    >
       {unreadCount > 0 && (
         <div className="absolute top-3 right-3 z-10">
-          <div className="badge badge-primary badge-md font-bold animate-in zoom-in duration-300 shadow-lg">
+          <div className={`badge badge-md font-bold animate-in zoom-in duration-300 shadow-lg ${isMuted ? 'badge-ghost' : 'badge-primary'}`}>
             {unreadCount}
           </div>
         </div>

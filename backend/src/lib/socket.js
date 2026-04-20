@@ -88,7 +88,7 @@ export const initializeSocket = (server) => {
 
         if (chat) {
           chat.members.forEach(member => {
-            io.to(`user_${member.userId}`).emit("receive_message", { ...newMessage, clientSideId });
+            io.to(`user_${member.userId}`).emit("newMessage", { ...newMessage, clientSideId });
           });
         }
         
@@ -134,23 +134,53 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("webrtc-offer", (data) => {
-      io.to(`user_${data.targetUserId}`).emit("webrtc-offer", data);
+      io.to(`user_${data.targetUserId}`).emit("webrtc-offer", {
+        ...data,
+        fromUserId: socket.userId
+      });
     });
 
     socket.on("webrtc-answer", (data) => {
-      io.to(`user_${data.targetUserId}`).emit("webrtc-answer", data);
+      io.to(`user_${data.targetUserId}`).emit("webrtc-answer", {
+        ...data,
+        fromUserId: socket.userId
+      });
     });
 
     socket.on("webrtc-ice-candidate", (data) => {
-      io.to(`user_${data.targetUserId}`).emit("webrtc-ice-candidate", data);
+      io.to(`user_${data.targetUserId}`).emit("webrtc-ice-candidate", {
+        ...data,
+        fromUserId: socket.userId
+      });
     });
 
-    socket.on("call:initiate", ({ targetUserId, chatId, callerName }) => {
-      io.to(`user_${targetUserId}`).emit("call:incoming", {
-        fromUserId: socket.userId,
-        callerName,
+    socket.on("call:join", ({ chatId }) => {
+      socket.join(`call_${chatId}`);
+      // Notify others in the call room
+      socket.to(`call_${chatId}`).emit("call:user-joined", {
+        userId: socket.userId,
         chatId
       });
+    });
+
+    socket.on("call:initiate", ({ targetUserId, chatId, callerName, isGroup }) => {
+      if (isGroup) {
+        // Broadcast to everyone in the chat room EXCEPT the caller
+        socket.to(`chat_${chatId}`).emit("call:incoming", {
+          fromUserId: socket.userId,
+          callerName,
+          chatId,
+          isGroupCall: true
+        });
+      } else {
+        // 1-on-1 behavior remains unchanged
+        io.to(`user_${targetUserId}`).emit("call:incoming", {
+          fromUserId: socket.userId,
+          callerName,
+          chatId,
+          isGroupCall: false
+        });
+      }
     });
 
     socket.on("call:response", ({ targetUserId, accepted, chatId }) => {

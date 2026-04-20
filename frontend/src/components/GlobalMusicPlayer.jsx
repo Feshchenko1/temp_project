@@ -1,82 +1,159 @@
-import { useState } from "react";
-import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
+import { 
+  Play, 
+  Pause, 
+  SkipBack, 
+  SkipForward, 
+  Volume2, 
+  VolumeX, 
+  Repeat,
+  Music,
+  X
+} from "lucide-react";
+import { useAudioStore } from "../store/useAudioStore";
 
 const GlobalMusicPlayer = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(80);
-  const [isMuted, setIsMuted] = useState(false);
-  const [progress, setProgress] = useState(30);
+  const { 
+    currentTrack, 
+    isPlaying, 
+    volume, 
+    isLooping, 
+    currentTime,
+    duration,
+    togglePlayPause, 
+    setVolume, 
+    toggleLoop,
+    stopTrack,
+    triggerSeek
+  } = useAudioStore();
 
-  const currentTrack = {
-    title: "Neon Pulse",
-    artist: "Synthwave Collaborative",
-    cover: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=150&h=150",
-    duration: "4:20",
-    currentTime: "1:15"
+  if (!currentTrack) return null;
+
+  const handleSeek = (e) => {
+    const time = Number(e.target.value);
+    triggerSeek(time);
   };
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
-  const toggleMute = () => setIsMuted(!isMuted);
+  const formatTime = (time) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   return (
-    <div className="mx-4 mb-4 rounded-xl bg-base-300 border border-base-content/10 overflow-hidden shadow-lg selection:bg-transparent">
-      {/* Mini Album Cover / Info */}
-      <div className="flex items-center gap-3 p-3 bg-base-200/50 backdrop-blur-sm border-b border-base-content/5">
-        <div className="size-12 rounded-lg bg-base-100 overflow-hidden shrink-0 shadow-inner">
-          <img src={currentTrack.cover} alt="Cover" className="w-full h-full object-cover" />
+    <div className="mx-4 mb-4 rounded-2xl bg-base-200/80 backdrop-blur-md border border-base-300 shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-500 relative">
+      <button 
+        onClick={stopTrack} 
+        className="absolute top-2 right-2 p-1.5 text-base-content/40 hover:text-error hover:bg-error/10 rounded-full transition-colors z-10"
+        aria-label="Close Player"
+      >
+        <X size={14} />
+      </button>
+
+      {/* Track Info */}
+      <div className="flex items-center gap-3 p-3 border-b border-base-300">
+        <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 shadow-inner group relative overflow-hidden">
+          {currentTrack.user?.profilePic ? (
+            <img src={currentTrack.user.profilePic} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Music className="text-primary size-6" />
+          )}
+          {isPlaying && (
+            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+              <div className="flex gap-0.5 items-end h-4">
+                <style>
+                  {`
+                    @keyframes music-bar {
+                      0%, 100% { height: 4px; }
+                      50% { height: 16px; }
+                    }
+                    .animate-music-bar-1 { animation: music-bar 0.6s ease-in-out infinite; }
+                    .animate-music-bar-2 { animation: music-bar 0.8s ease-in-out infinite; }
+                    .animate-music-bar-3 { animation: music-bar 0.7s ease-in-out infinite; }
+                  `}
+                </style>
+                <div className="w-1 bg-primary rounded-full animate-music-bar-1"></div>
+                <div className="w-1 bg-primary rounded-full animate-music-bar-2"></div>
+                <div className="w-1 bg-primary rounded-full animate-music-bar-3"></div>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="flex-1 overflow-hidden">
-          <h4 className="text-sm font-bold text-base-content truncate">{currentTrack.title}</h4>
-          <p className="text-xs text-base-content/60 truncate">{currentTrack.artist}</p>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-sm font-black text-base-content truncate">
+            {currentTrack.title}
+          </h4>
+          <p className="text-[10px] uppercase tracking-widest font-bold text-base-content/40 truncate">
+            {currentTrack.artist || "Unknown Artist"}
+          </p>
         </div>
       </div>
 
-      {/* Controls Container */}
-      <div className="p-3 bg-base-300 space-y-3">
-        {/* Playback Controls */}
-        <div className="flex items-center justify-center gap-4">
-          <button className="btn btn-circle btn-ghost btn-sm text-base-content/70 hover:text-primary transition-colors">
-            <SkipBackIcon className="size-4" />
-          </button>
+      <div className="p-3 space-y-3">
+        {/* Controls */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={toggleLoop}
+              className={`btn btn-ghost btn-xs btn-circle ${isLooping ? 'text-primary' : 'text-base-content/30'}`}
+              title="Loop"
+            >
+              <Repeat size={14} />
+            </button>
+          </div>
 
-          <button
-            onClick={togglePlay}
-            className="btn btn-circle btn-primary btn-sm shadow-md shadow-primary/20"
-          >
-            {isPlaying ? <PauseIcon className="size-4" /> : <PlayIcon className="size-4 ml-0.5" />}
-          </button>
+          <div className="flex items-center gap-4">
+            <button className="btn btn-ghost btn-sm btn-circle text-base-content/40 cursor-not-allowed">
+              <SkipBack size={18} />
+            </button>
 
-          <button className="btn btn-circle btn-ghost btn-sm text-base-content/70 hover:text-primary transition-colors">
-            <SkipForwardIcon className="size-4" />
-          </button>
+            <button
+              onClick={togglePlayPause}
+              className="btn btn-primary btn-sm btn-circle shadow-lg shadow-primary/20 transition-transform active:scale-90"
+            >
+              {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+            </button>
+
+            <button className="btn btn-ghost btn-sm btn-circle text-base-content/40 cursor-not-allowed">
+              <SkipForward size={18} />
+            </button>
+          </div>
+
+          <div className="w-6"></div> {/* Spacer for symmetry */}
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress */}
         <div className="space-y-1">
-          <div className="flex justify-between text-[10px] font-medium text-base-content/50 px-1">
-            <span>{currentTrack.currentTime}</span>
-            <span>{currentTrack.duration}</span>
-          </div>
-          <div className="w-full h-1.5 bg-base-100 rounded-full overflow-hidden cursor-pointer relative group">
-            <div
-              className="absolute top-0 left-0 h-full bg-primary group-hover:bg-primary-focus transition-colors"
-              style={{ width: `${progress}%` }}
-            ></div>
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            value={currentTime}
+            onChange={handleSeek}
+            className="range range-xs range-primary w-full cursor-pointer"
+          />
+          <div className="flex justify-between text-[9px] font-bold text-base-content/40 uppercase tracking-tighter">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
           </div>
         </div>
 
-        {/* Volume Scrubber */}
-        <div className="flex items-center gap-2 px-1 pt-1">
-          <button onClick={toggleMute} className="text-base-content/60 hover:text-base-content transition-colors">
-            {isMuted || volume === 0 ? <VolumeXIcon className="size-3.5" /> : <Volume2Icon className="size-3.5" />}
+        {/* Volume */}
+        <div className="flex items-center gap-2 group/volume">
+          <button 
+            onClick={() => setVolume(volume > 0 ? 0 : 0.7)}
+            className="text-base-content/40 group-hover/volume:text-primary transition-colors"
+          >
+            {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
           </button>
           <input
             type="range"
             min={0}
-            max="100"
-            value={isMuted ? 0 : volume}
+            max={1}
+            step={0.01}
+            value={volume}
             onChange={(e) => setVolume(Number(e.target.value))}
-            className="range range-xs range-primary flex-1 opacity-80"
+            className="range range-xs flex-1 cursor-pointer"
           />
         </div>
       </div>

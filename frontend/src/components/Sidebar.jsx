@@ -48,7 +48,7 @@ const Sidebar = () => {
         </Link>
       </div>
 
-      <nav className={`flex-1 p-4 space-y-2 overflow-y-auto ${isCollapsed ? "flex flex-col items-center" : ""}`}>
+      <nav className={`flex-1 p-4 space-y-2 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isCollapsed ? "flex flex-col items-center" : ""}`}>
         {[
           { to: "/", icon: LayoutDashboard, label: "Studio Dashboard" },
           { to: "/collaborators", icon: UsersIcon, label: "Collaborators" },
@@ -106,11 +106,6 @@ const Sidebar = () => {
 
       {/* GLOBAL MUSIC PLAYER */}
       {!isCollapsed && <GlobalMusicPlayer />}
-      {isCollapsed && (
-        <div className="flex justify-center p-4">
-           <HeadphonesIcon className="size-6 text-base-content/20 animate-pulse" />
-        </div>
-      )}
 
       {/* USER PROFILE SECTION WITH MANUAL STATE-DRIVEN DROPDOWN */}
       <div 

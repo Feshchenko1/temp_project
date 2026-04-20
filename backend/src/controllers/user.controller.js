@@ -66,10 +66,17 @@ export async function getRecommendedUsers(req, res) {
 export async function getMyFriends(req, res) {
   try {
     const currentUserId = req.user.id;
-    const user = await prisma.user.findUnique({
-      where: { id: currentUserId },
+    
+    // Find all accepted friend requests involving the current user
+    const friendRequests = await prisma.friendRequest.findMany({
+      where: {
+        OR: [
+          { senderId: currentUserId, status: "accepted" },
+          { recipientId: currentUserId, status: "accepted" },
+        ],
+      },
       include: {
-        friends: {
+        sender: {
           select: {
             id: true,
             fullName: true,
@@ -79,12 +86,31 @@ export async function getMyFriends(req, res) {
             location: true,
             bio: true,
             spokenLanguages: true,
-          }
-        }
-      }
+            publicKey: true,
+          },
+        },
+        recipient: {
+          select: {
+            id: true,
+            fullName: true,
+            profilePic: true,
+            instrumentsKnown: true,
+            instrumentsToLearn: true,
+            location: true,
+            bio: true,
+            spokenLanguages: true,
+            publicKey: true,
+          },
+        },
+      },
     });
 
-    res.status(200).json(user.friends);
+    // Extract the other user from each friend request
+    const friends = friendRequests.map((friendReq) =>
+      friendReq.senderId === currentUserId ? friendReq.recipient : friendReq.sender
+    );
+
+    res.status(200).json(friends);
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
   }
@@ -122,7 +148,11 @@ export async function sendFriendRequest(req, res) {
     });
 
     if (existingRequest) {
-      return res.status(400).json({ message: "A friend request already exists between you and this user" });
+      if (existingRequest.status === "accepted" || existingRequest.status === "rejected") {
+        await prisma.friendRequest.delete({ where: { id: existingRequest.id } });
+      } else {
+        return res.status(400).json({ message: "A friend request already exists between you and this user" });
+      }
     }
 
     const friendRequest = await prisma.friendRequest.create({
@@ -166,11 +196,33 @@ export async function acceptFriendRequest(req, res) {
       return res.status(403).json({ message: "You are not authorized to accept this request" });
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.friendRequest.update({
-        where: { id: requestId },
+    // Double-click protection: if it's already accepted, just return.
+    if (friendRequest.status === "accepted") {
+      return res.status(200).json({ message: "Friend request already accepted" });
+    }
+
+    // Idempotency check: see if a 1-on-1 chat already exists between these two users
+    const existingChat = await prisma.chat.findFirst({
+      where: {
+        isGroup: false,
+        AND: [
+          { members: { some: { userId: friendRequest.senderId } } },
+          { members: { some: { userId: friendRequest.recipientId } } }
+        ]
+      }
+    });
+
+    const finalChat = await prisma.$transaction(async (tx) => {
+      // Safe update to avoid race conditions causing errors
+      const updateResult = await tx.friendRequest.updateMany({
+        where: { id: requestId, status: "pending" },
         data: { status: "accepted" }
       });
+
+      // If count is 0, it means it was altered (accepted/deleted) by another concurrent request
+      if (updateResult.count === 0 && friendRequest.status === "pending") {
+        return null;
+      }
 
       await tx.user.update({
         where: { id: friendRequest.senderId },
@@ -182,23 +234,97 @@ export async function acceptFriendRequest(req, res) {
         data: { friends: { connect: { id: friendRequest.senderId } } }
       });
 
-      await tx.chat.create({
-        data: {
-          isGroup: false,
-          chatType: "PERMANENT",
-          members: {
-            create: [
-              { userId: friendRequest.senderId, role: "MEMBER" },
-              { userId: friendRequest.recipientId, role: "MEMBER" }
-            ]
+      let chat;
+      // Only create a new chat if one doesn't exist
+      if (!existingChat) {
+        chat = await tx.chat.create({
+          data: {
+            isGroup: false,
+            chatType: "PERMANENT",
+            members: {
+              create: [
+                { userId: friendRequest.senderId, role: "MEMBER" },
+                { userId: friendRequest.recipientId, role: "MEMBER" }
+              ]
+            }
+          },
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    profilePic: true,
+                    publicKey: true,
+                    bio: true,
+                    location: true,
+                    instrumentsKnown: true,
+                    instrumentsToLearn: true,
+                    spokenLanguages: true,
+                  }
+                }
+              }
+            },
+            messages: {
+              orderBy: { createdAt: "desc" },
+              take: 1
+            }
           }
-        }
-      });
+        });
+      } else {
+        chat = await tx.chat.findUnique({
+          where: { id: existingChat.id },
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    profilePic: true,
+                    publicKey: true,
+                    bio: true,
+                    location: true,
+                    instrumentsKnown: true,
+                    instrumentsToLearn: true,
+                    spokenLanguages: true,
+                  }
+                }
+              }
+            },
+            messages: {
+              orderBy: { createdAt: "desc" },
+              take: 1
+            }
+          }
+        });
+      }
+      return chat;
     });
 
+    if (!finalChat) {
+      return res.status(200).json({ message: "Friend request already handled" });
+    }
 
-    res.status(200).json({ message: "Friend request accepted" });
+    // Format chat exactly like getRecentChats
+    const formattedChat = {
+      ...finalChat,
+      otherMember: finalChat.members.find(m => m.userId !== currentUserId)?.user || null,
+      lastMessage: finalChat.messages[0] || null,
+      members: finalChat.members.map(m => ({
+        ...m.user,
+        role: m.role,
+        joinedAt: m.joinedAt
+      }))
+    };
+
+    res.status(200).json({ 
+      message: "Friend request accepted",
+      chat: formattedChat
+    });
   } catch (error) {
+    console.error("Error accepting friend request:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -415,5 +541,62 @@ export async function deleteAccount(req, res) {
       message: "An error occurred during account deletion. The operation has been rolled back and your session is still active.",
       error: error.message 
     });
+  }
+}
+
+export async function removeFriend(req, res) {
+  try {
+    const { friendId } = req.params;
+    const currentUserId = req.user.id;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: currentUserId },
+        data: { friends: { disconnect: { id: friendId } } }
+      });
+
+      await tx.user.update({
+        where: { id: friendId },
+        data: { friends: { disconnect: { id: currentUserId } } }
+      });
+
+      await tx.friendRequest.deleteMany({
+        where: {
+          OR: [
+            { senderId: currentUserId, recipientId: friendId },
+            { senderId: friendId, recipientId: currentUserId },
+          ]
+        }
+      });
+
+      const sharedChat = await tx.chat.findFirst({
+        where: {
+          isGroup: false,
+          AND: [
+            { members: { some: { userId: currentUserId } } },
+            { members: { some: { userId: friendId } } }
+          ]
+        }
+      });
+
+      if (sharedChat) {
+        await tx.chat.delete({
+          where: { id: sharedChat.id }
+        });
+        
+        // Store chatId for emission after transaction
+        req.deletedChatId = sharedChat.id;
+      }
+    });
+
+    const io = getIo();
+    if (io && req.deletedChatId) {
+      io.to(`user_${currentUserId}`).emit("chat_deleted", { chatId: req.deletedChatId });
+      io.to(`user_${friendId}`).emit("chat_deleted", { chatId: req.deletedChatId });
+    }
+
+    res.status(200).json({ message: "Friend removed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }

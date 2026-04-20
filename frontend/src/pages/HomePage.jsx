@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { CheckCircleIcon, MapPinIcon, UserPlusIcon, XIcon, CheckIcon } from "lucide-react";
+import { CheckCircleIcon, MapPinIcon, UserPlusIcon, XIcon, CheckIcon, BellOffIcon, UserMinusIcon, PinIcon, PinOffIcon } from "lucide-react";
 import { useNotificationStore } from "../store/useNotificationStore";
 import {
   getOutgoingFriendReqs,
@@ -9,10 +9,17 @@ import {
   getRecentChats,
   sendFriendRequest,
   acceptFriendRequest,
-  rejectFriendRequest
+  rejectFriendRequest,
+  removeFriend,
+  toggleMuteChat,
+  togglePinChatNavbar
 } from "../lib/api";
 
 import { capitialize } from "../lib/utils";
+import { useContextMenu } from "../hooks/useContextMenu";
+import ContextMenu from "../components/ContextMenu";
+import toast from "react-hot-toast";
+import { useUnreadStore } from "../store/useUnreadStore";
 
 import UserCard from "../components/UserCard";
 import NoFriendsFound from "../components/NoFriendsFound";
@@ -24,6 +31,8 @@ const HomePage = () => {
   const { pendingRequests, removeRequest } = useNotificationStore();
   const [processingId, setProcessingId] = useState(null);
   const [outgoingRequestsIds, setOutgoingRequestsIds] = useState(new Set());
+  const { contextMenu, handleContextMenu, closeContextMenu } = useContextMenu();
+  const { unreadCounts } = useUnreadStore();
 
   const { data: recentChats = [], isLoading: loadingFriends } = useQuery({
     queryKey: ["recent-chats"],
@@ -53,29 +62,103 @@ const HomePage = () => {
   });
 
   const { mutate: acceptMutation } = useMutation({
-    mutationFn: (requestId) => {
-      setProcessingId(requestId);
+    mutationFn: ({ requestId, userId }) => {
+      setProcessingId(userId);
       return acceptFriendRequest(requestId);
     },
-    onSuccess: (_, requestId) => {
-      removeRequest(requestId);
+    onMutate: async ({ requestId, userId }) => {
+      // 1. Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
+
+      // 2. Snapshot the current state
+      const previousStoreRequests = useNotificationStore.getState().pendingRequests;
+      const previousQueryData = queryClient.getQueryData(["friend-requests"]);
+
+      // 3. Optimistically update
+      removeRequest(requestId); // Sync badge count
+      if (previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], (old) => ({
+          ...old,
+          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
+        }));
+      }
+
+      return { previousStoreRequests, previousQueryData };
+    },
+    onSuccess: (data) => {
+      toast.success("Friend request accepted!");
+      if (data?.chat) {
+        queryClient.setQueryData(["recent-chats"], (oldChats) => {
+          const currentChats = oldChats || [];
+          // Prevent duplicates
+          if (currentChats.some(c => c.id === data.chat.id)) return currentChats;
+          // Inject at the top of the list
+          return [data.chat, ...currentChats];
+        });
+      }
+    },
+    onError: (err, { requestId, userId }, context) => {
+      // 4. Rollback
+      if (context?.previousStoreRequests) {
+        useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
+      }
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], context.previousQueryData);
+      }
+      toast.error("Failed to accept friend request");
+    },
+    onSettled: () => {
+      // 5. Invalidate to sync server state
+      queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
       setProcessingId(null);
-    },
-    onError: () => setProcessingId(null)
+    }
   });
 
   const { mutate: rejectMutation } = useMutation({
-    mutationFn: (requestId) => {
-      setProcessingId(requestId);
+    mutationFn: ({ requestId, userId }) => {
+      setProcessingId(userId);
       return rejectFriendRequest(requestId);
     },
-    onSuccess: (_, requestId) => {
-      removeRequest(requestId);
-      setProcessingId(null);
+    onMutate: async ({ requestId, userId }) => {
+      // 1. Cancel outgoing queries
+      await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
+
+      // 2. Snapshot
+      const previousStoreRequests = useNotificationStore.getState().pendingRequests;
+      const previousQueryData = queryClient.getQueryData(["friend-requests"]);
+
+      // 3. Optimistic update
+      removeRequest(requestId); // Sync badge count
+      if (previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], (old) => ({
+          ...old,
+          incomingReqs: (old.incomingReqs || []).filter(req => String(req.id) !== String(requestId))
+        }));
+      }
+
+      return { previousStoreRequests, previousQueryData };
     },
-    onError: () => setProcessingId(null)
+    onSuccess: () => {
+      toast.success("Friend request rejected");
+    },
+    onError: (err, { requestId, userId }, context) => {
+      // 4. Rollback
+      if (context?.previousStoreRequests) {
+        useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
+      }
+      if (context?.previousQueryData) {
+        queryClient.setQueryData(["friend-requests"], context.previousQueryData);
+      }
+      toast.error("Failed to reject friend request");
+    },
+    onSettled: () => {
+      // 5. Invalidate
+      queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+      setProcessingId(null);
+    }
   });
 
   useEffect(() => {
@@ -87,6 +170,42 @@ const HomePage = () => {
       setOutgoingRequestsIds(outgoingIds);
     }
   }, [outgoingFriendReqs]);
+
+  const handlePinToggle = async (chatId, isCurrentlyPinned) => {
+    closeContextMenu();
+    try {
+      await togglePinChatNavbar(chatId);
+      queryClient.invalidateQueries(["recent-chats"]);
+      toast.success(isCurrentlyPinned ? "Unpinned from Navbar" : "Pinned to Navbar");
+    } catch (error) {
+      toast.error("Failed to update pin status");
+    }
+  };
+
+  const handleRemoveFriend = async (friendId) => {
+    closeContextMenu();
+    try {
+      await removeFriend(friendId);
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Removed friend");
+    } catch (err) {
+      toast.error("Failed to remove friend");
+    }
+  };
+
+  const handleMuteToggle = async (chatId) => {
+    closeContextMenu();
+    const store = useUnreadStore.getState();
+    store.toggleMuteOptimistic(chatId);
+    try {
+      await toggleMuteChat(chatId);
+    } catch (error) {
+      toast.error("Failed to update mute status");
+      store.toggleMuteOptimistic(chatId);
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -107,7 +226,7 @@ const HomePage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentChats.map((chat) => (
-                <UserCard key={chat.id} user={chat.otherMember} chatId={chat.id}>
+                <UserCard key={chat.id} user={chat.otherMember} chatId={chat.id} onContextMenu={(e, data) => handleContextMenu(e, data)}>
                   <Link
                     to={`/collaborators?chatId=${chat.id}`}
                     className="btn btn-primary w-full btn-sm"
@@ -147,24 +266,29 @@ const HomePage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {recommendedUsers.map((user) => {
                   const hasRequestBeenSent = outgoingRequestsIds.has(user.id);
-                  const incomingReq = pendingRequests.find(req => req.sender.id === user.id);
-                  const isProcessing = processingId === user.id || (incomingReq && processingId === incomingReq.id);
+                  const incomingReq = pendingRequests.find(req => String(req.sender.id) === String(user.id));
+                  const isProcessing = processingId === user.id;
 
                   return (
                     <UserCard key={user.id} user={user}>
-                      {incomingReq ? (
+                      {isProcessing ? (
+                        <div className="flex gap-2 w-full">
+                          <button className="btn btn-primary btn-sm flex-1 font-bold disabled:bg-primary/50" disabled>
+                            <span className="loading loading-spinner loading-xs" />
+                            Processing...
+                          </button>
+                        </div>
+                      ) : incomingReq ? (
                         <div className="flex gap-2 w-full">
                           <button
                             className="btn btn-primary btn-sm flex-1 font-bold"
-                            onClick={() => acceptMutation(incomingReq.id)}
-                            disabled={isProcessing}
+                            onClick={() => acceptMutation({ requestId: incomingReq.id, userId: user.id })}
                           >
-                            {isProcessing ? <span className="loading loading-spinner loading-xs" /> : "Accept"}
+                            Accept
                           </button>
                           <button
                             className="btn btn-ghost btn-sm border border-base-300 hover:bg-error hover:text-error-content transition-all"
-                            onClick={() => rejectMutation(incomingReq.id)}
-                            disabled={isProcessing}
+                            onClick={() => rejectMutation({ requestId: incomingReq.id, userId: user.id })}
                           >
                             <XIcon className="size-4" />
                           </button>
@@ -204,6 +328,45 @@ const HomePage = () => {
 
 
       </div>
+
+      {contextMenu && contextMenu.data && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>
+          {(() => {
+            const chat = recentChats.find(c => c.id === contextMenu.data.chatId);
+            const isPinned = chat?.isPinnedToNavbar;
+
+            return (
+              <li>
+                <button
+                  onClick={() => handlePinToggle(contextMenu.data.chatId, isPinned)}
+                  className="flex items-center gap-2"
+                >
+                  {isPinned ? <PinOffIcon className="size-4" /> : <PinIcon className="size-4" />}
+                  {isPinned ? "Unpin from Navbar" : "Pin to Navbar"}
+                </button>
+              </li>
+            );
+          })()}
+          <li>
+            <button
+              onClick={() => handleMuteToggle(contextMenu.data.chatId)}
+              className="flex items-center gap-2"
+            >
+              <BellOffIcon className="size-4" />
+              {(unreadCounts[contextMenu.data.chatId]?.isMuted) ? "Unmute Notifications" : "Mute Notifications"}
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => handleRemoveFriend(contextMenu.data.user?.id)}
+              className="flex items-center gap-2 text-error hover:bg-error/10 hover:text-error"
+            >
+              <UserMinusIcon className="size-4" />
+              Remove Friend
+            </button>
+          </li>
+        </ContextMenu>
+      )}
     </div>
   );
 };

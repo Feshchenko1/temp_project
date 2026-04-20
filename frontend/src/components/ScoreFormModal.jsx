@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useScoreStore } from "../store/useScoreStore";
-import { FilePlus, X, Upload, Loader2, FileText, Pencil } from "lucide-react";
+import { FilePlus, X, Upload, Loader2, FileText, Pencil, Music, Trash2 } from "lucide-react";
 import Select from "react-select";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -12,23 +12,34 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
   const mode = scoreToEdit ? "edit" : "create";
 
   const [file, setFile] = useState(null);
+  const [audioFile, setAudioFile] = useState(null);
+  const [existingAudioUrl, setExistingAudioUrl] = useState(null);
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
   const [progress, setProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState(""); // "pdf" or "audio"
 
   useEffect(() => {
     if (scoreToEdit && isOpen) {
       setTitle(scoreToEdit.title || "");
       setArtist(scoreToEdit.artist || "");
-      setSelectedTags(
-        scoreToEdit.tags?.map(tag => ({ value: tag, label: tag })) || []
-      );
+      setExistingAudioUrl(scoreToEdit.audioUrl || null);
+
+      // Safely parse tags to prevent React child object crash
+      const parsedTags = scoreToEdit.tags?.map(t => {
+        const tagName = typeof t === 'object' ? (t.tag?.name || t.name || "Unknown") : t;
+        return { value: tagName, label: tagName };
+      }) || [];
+
+      setSelectedTags(parsedTags);
     } else if (!scoreToEdit && isOpen) {
       setTitle("");
       setArtist("");
       setSelectedTags([]);
       setFile(null);
+      setAudioFile(null);
+      setExistingAudioUrl(null);
     }
   }, [scoreToEdit, isOpen]);
 
@@ -46,6 +57,19 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
     }
   };
 
+  const handleAudioChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile && selectedFile.type.startsWith("audio/")) {
+      if (selectedFile.size > 20 * 1024 * 1024) { // 20MB Limit
+        return toast.error("Audio file must be less than 20MB");
+      }
+      setAudioFile(selectedFile);
+      setExistingAudioUrl(null); // Clear existing if a new one is selected
+    } else {
+      toast.error("Please select a valid audio file");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -53,38 +77,81 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
       if (!file || !title) return toast.error("Please provide title and PDF file");
 
       try {
+        let currentFileUrl = "";
+        let currentAudioUrl = null;
+
+        // 1. Upload PDF
+        setUploadPhase("pdf");
         const uploadData = await getPresignedUrl(file.name, file.type);
         if (!uploadData) return;
 
-        const { presignedUrl, fileUrl } = uploadData;
-
-        await axios.put(presignedUrl, file, {
+        await axios.put(uploadData.presignedUrl, file, {
           headers: { "Content-Type": file.type },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             setProgress(percentCompleted);
           }
         });
+        currentFileUrl = uploadData.fileUrl;
+
+        // 2. Optional Audio Upload
+        if (audioFile) {
+          setProgress(0);
+          setUploadPhase("audio");
+          const audioUploadData = await getPresignedUrl(audioFile.name, audioFile.type);
+          if (audioUploadData) {
+            await axios.put(audioUploadData.presignedUrl, audioFile, {
+              headers: { "Content-Type": audioFile.type },
+              onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                setProgress(percentCompleted);
+              }
+            });
+            currentAudioUrl = audioUploadData.fileUrl;
+          }
+        }
 
         await createScore({
           title,
           artist,
-          fileUrl,
+          fileUrl: currentFileUrl,
+          audioUrl: currentAudioUrl,
           fileSize: file.size,
           tags: selectedTags.map(t => t.value)
         });
 
         handleClose();
       } catch (error) {
+        console.error("Upload error:", error);
         toast.error("Failed to upload score");
       }
     } else {
       if (!title) return toast.error("Title is required");
 
       try {
+        let currentAudioUrl = existingAudioUrl;
+
+        // If new audio file selected, upload it
+        if (audioFile) {
+          setProgress(0);
+          setUploadPhase("audio");
+          const audioUploadData = await getPresignedUrl(audioFile.name, audioFile.type);
+          if (audioUploadData) {
+            await axios.put(audioUploadData.presignedUrl, audioFile, {
+              headers: { "Content-Type": audioFile.type },
+              onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                setProgress(percentCompleted);
+              }
+            });
+            currentAudioUrl = audioUploadData.fileUrl;
+          }
+        }
+
         await updateScore(scoreToEdit.id, {
           title,
           artist,
+          audioUrl: currentAudioUrl, // Will be null if both cleared
           tags: selectedTags.map(t => t.value)
         });
         handleClose();
@@ -98,10 +165,13 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
     onClose();
     setTimeout(() => {
       setFile(null);
+      setAudioFile(null);
+      setExistingAudioUrl(null);
       setTitle("");
       setArtist("");
       setSelectedTags([]);
       setProgress(0);
+      setUploadPhase("");
     }, 300);
   };
 
@@ -196,6 +266,52 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
             </div>
           )}
 
+          {/* Optional Audio Track section */}
+          <div className="space-y-2">
+            <label className="label py-0">
+              <span className="label-text text-xs font-bold uppercase tracking-widest text-base-content/50">Optional Audio Track</span>
+            </label>
+
+            <div className="relative">
+              {!audioFile && !existingAudioUrl ? (
+                <label className="flex items-center gap-4 w-full p-4 border-2 border-dashed border-base-300 rounded-2xl bg-base-200/30 hover:bg-base-200 hover:border-primary/50 cursor-pointer transition-all">
+                  <div className="p-2 bg-base-300 rounded-xl text-base-content/50">
+                    <Music size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-base-content/70">Click to add audio track</p>
+                    <p className="text-xs text-base-content/40">MP3, WAV, etc. (max 20MB)</p>
+                  </div>
+                  <input type="file" className="hidden" accept="audio/*" onChange={handleAudioChange} />
+                </label>
+              ) : (
+                <div className="space-y-3 p-4 bg-secondary/5 border border-secondary/20 rounded-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-secondary/10 rounded-xl text-secondary">
+                      <Music size={24} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-base-content truncate">
+                        {audioFile ? audioFile.name : "Attached Audio Track"}
+                      </p>
+                      {audioFile && (
+                        <p className="text-xs text-base-content/60">{(audioFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => { setAudioFile(null); setExistingAudioUrl(null); }} className="btn btn-ghost btn-sm btn-square text-error">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                  <audio
+                    controls
+                    className="w-full h-8"
+                    src={audioFile ? URL.createObjectURL(audioFile) : existingAudioUrl}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-control w-full">
               <label className="label">
@@ -245,7 +361,9 @@ const ScoreFormModal = ({ isOpen, onClose, scoreToEdit = null }) => {
             {isUploading && progress > 0 && progress < 100 && (
               <div className="mb-4 space-y-2">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-base-content/60">Uploading PDF...</span>
+                  <span className="text-base-content/60">
+                    {uploadPhase === "pdf" ? "Uploading PDF..." : "Uploading Audio..."}
+                  </span>
                   <span className="text-primary font-bold">{progress}%</span>
                 </div>
                 <progress className="progress progress-primary w-full h-2" value={progress} max="100"></progress>

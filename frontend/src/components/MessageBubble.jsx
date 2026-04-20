@@ -14,7 +14,8 @@ const MessageBubble = ({
   onPin,
   onForward,
   onCopy,
-  scrollToOriginal
+  scrollToOriginal,
+  isGroup
 }) => {
   const [decryptedText, setDecryptedText] = useState(message.text || "");
   const [isDecrypting, setIsDecrypting] = useState(!message.text);
@@ -75,17 +76,20 @@ const MessageBubble = ({
     e.preventDefault();
 
     const MENU_WIDTH = 210;
-    const MENU_HEIGHT = 350;
+    const MENU_HEIGHT = 280; // Adjusted based on approximate total height of items
+    const PADDING = 12; // Gap from the screen edge
 
     let x = e.clientX;
     let y = e.clientY;
 
+    // Clamp to right edge
     if (x + MENU_WIDTH > window.innerWidth) {
-      x = x - MENU_WIDTH;
+      x = Math.max(PADDING, window.innerWidth - MENU_WIDTH - PADDING);
     }
 
+    // Clamp to bottom edge (This prevents the massive jump)
     if (y + MENU_HEIGHT > window.innerHeight) {
-      y = Math.max(10, y - MENU_HEIGHT);
+      y = Math.max(PADDING, window.innerHeight - MENU_HEIGHT - PADDING);
     }
 
     setContextMenu({ x, y });
@@ -96,12 +100,29 @@ const MessageBubble = ({
 
   return (
     <div id={`msg-${message.id}`} data-id={message.id} className={`chat ${isOwnMessage ? 'chat-end' : 'chat-start'} group/bubble`}>
+      {isGroup && !isOwnMessage && (
+        <div className="chat-image avatar">
+          <div className="w-10 rounded-full border-2 border-primary/20 hover:border-primary transition-colors shadow-lg">
+            <img
+              src={message.sender?.profilePic || "/avatar.png"}
+              alt={message.sender?.fullName || "Member"}
+              className="object-cover"
+            />
+          </div>
+        </div>
+      )}
       <div
         onContextMenu={handleContextMenu}
         className={`chat-bubble shadow-md cursor-pointer select-none transition-all duration-300 relative group-hover/bubble:shadow-lg ${highlightedMsgId === message.id ? 'ring-4 ring-primary ring-offset-4 ring-offset-base-300 bg-primary/20 scale-[1.01]' : ''
           } ${isOwnMessage ? 'bg-primary text-primary-content' : 'bg-base-200'}`}
       >
         <div className="flex flex-col gap-1">
+          {isGroup && !isOwnMessage && (
+            <p className="text-[11px] font-bold text-primary mb-1 opacity-90 transition-opacity flex items-center gap-1.5">
+              <span className="w-1 h-1 bg-primary rounded-full" />
+              {message.sender?.fullName || "Musician"}
+            </p>
+          )}
           {message.replyTo && (
             <div
               onClick={() => scrollToOriginal(message.replyTo.id)}

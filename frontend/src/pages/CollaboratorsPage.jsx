@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { UsersIcon, MessageSquareIcon, SearchIcon, FilterIcon } from "lucide-react";
+import { UsersIcon, MessageSquareIcon, SearchIcon, PlusIcon, BellOffIcon, LogOutIcon, UserMinusIcon, PinIcon, PinOffIcon } from "lucide-react";
 import { useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import { getRecentChats, markChatAsRead } from "../lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRecentChats, markChatAsRead, toggleMuteChat, leaveChat, removeFriend, togglePinChatNavbar } from "../lib/api";
 import useAuthUser from "../hooks/useAuthUser";
 import { useLayoutStore } from "../store/useLayoutStore";
 import { useUnreadStore } from "../store/useUnreadStore";
 import SecureChat from "../components/SecureChat";
 import ChatSnippet from "../components/ChatSnippet";
+import { useContextMenu } from "../hooks/useContextMenu";
+import ContextMenu from "../components/ContextMenu";
+import CreateGroupModal from "../components/CreateGroupModal";
+import toast from "react-hot-toast";
 
 const CollaboratorsPage = () => {
   const { authUser } = useAuthUser();
@@ -17,7 +21,10 @@ const CollaboratorsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedChatId, setSelectedChatId] = useState(chatId);
   const { onlineUserIds } = useLayoutStore();
-  const { unreadCounts, setActiveChatId, clearCount } = useUnreadStore();
+  const { unreadCounts, setActiveChatId, clearCount, toggleMuteOptimistic, removeChatOptimistic } = useUnreadStore();
+  const queryClient = useQueryClient();
+  const { contextMenu, handleContextMenu, closeContextMenu } = useContextMenu();
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
   const { data: recentChats = [], isLoading } = useQuery({
     queryKey: ["recent-chats"],
@@ -51,9 +58,67 @@ const CollaboratorsPage = () => {
     setSearchParams({ chatId: id });
     setActiveChatId(id);
 
-    if (unreadCounts[id] > 0) {
+    if (unreadCounts[id]?.count > 0) {
       markChatAsRead(id).catch(console.error);
       clearCount(id);
+    }
+  };
+
+  const handlePinToggle = async (chat) => {
+    closeContextMenu();
+    try {
+      await togglePinChatNavbar(chat.id);
+      queryClient.invalidateQueries(["recent-chats"]);
+      toast.success(chat.isPinnedToNavbar ? "Unpinned from Navbar" : "Pinned to Navbar");
+    } catch (error) {
+      toast.error("Failed to update pin status");
+    }
+  };
+
+  const handleMuteToggle = async (chatId) => {
+    closeContextMenu();
+    toggleMuteOptimistic(chatId);
+    try {
+      await toggleMuteChat(chatId);
+    } catch (error) {
+      toast.error("Failed to update mute status");
+      toggleMuteOptimistic(chatId);
+    }
+  };
+
+  const handleLeaveGroup = async (chatId) => {
+    closeContextMenu();
+    if (selectedChatId === chatId) {
+      setSelectedChatId(null);
+      setSearchParams({});
+      setActiveChatId(null);
+    }
+    try {
+      await leaveChat(chatId);
+      removeChatOptimistic(chatId);
+      queryClient.invalidateQueries(["recent-chats"]);
+      toast.success("Left group chat");
+    } catch (error) {
+      toast.error("Failed to leave group chat");
+    }
+  };
+
+  const handleRemoveFriend = async (friendId, chatId) => {
+    closeContextMenu();
+    if (selectedChatId === chatId) {
+      setSelectedChatId(null);
+      setSearchParams({});
+      setActiveChatId(null);
+    }
+    try {
+      await removeFriend(friendId);
+      removeChatOptimistic(chatId);
+      queryClient.invalidateQueries(["friends"]);
+      queryClient.invalidateQueries(["recent-chats"]);
+      queryClient.invalidateQueries(["users"]);
+      toast.success("Friend removed successfully");
+    } catch (error) {
+      toast.error("Failed to remove friend");
     }
   };
 
@@ -67,9 +132,15 @@ const CollaboratorsPage = () => {
               <UsersIcon className="size-5 text-primary" />
               Collaborators
             </h1>
-            <button className="btn btn-ghost btn-sm btn-circle">
-              <FilterIcon className="size-4" />
-            </button>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setIsCreateGroupOpen(true)}
+                className="btn btn-ghost btn-circle btn-sm"
+                title="New Group"
+              >
+                <PlusIcon className="size-5" />
+              </button>
+            </div>
           </div>
 
           <div className="relative">
@@ -100,18 +171,24 @@ const CollaboratorsPage = () => {
           ) : (
             <div className="space-y-1 p-2">
               {sortedChats
-                .filter(chat =>
-                  chat.otherMember && (
-                    chat.otherMember.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    chat.lastMessage?.content.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                )
+                .filter(chat => {
+                  const matchName = chat.isGroup ? chat.name : chat.otherMember?.fullName;
+                  const searchLower = searchTerm.toLowerCase();
+                  return (
+                    (matchName && matchName.toLowerCase().includes(searchLower)) ||
+                    (chat.lastMessage?.content && chat.lastMessage.content.toLowerCase().includes(searchLower))
+                  );
+                })
                 .map((chat) => {
-                  const unreadCount = unreadCounts[chat.id] || 0;
+                  const unreadData = unreadCounts[chat.id] || { count: 0, isMuted: false };
+                  const unreadCount = typeof unreadData === "number" ? unreadData : unreadData.count;
+                  const isMuted = unreadData.isMuted;
+
                   return (
                     <button
                       key={chat.id}
                       onClick={() => handleChatSelect(chat.id)}
+                      onContextMenu={(e) => handleContextMenu(e, chat)}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group relative ${selectedChatId === chat.id
                           ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
                           : "hover:bg-base-200"
@@ -119,22 +196,33 @@ const CollaboratorsPage = () => {
                     >
                       <div className="relative">
                         <div className="avatar">
-                          <div className="w-12 rounded-full ring-2 ring-base-100">
-                            <img
-                              src={chat.otherMember?.profilePic || "/avatar-placeholder.png"}
-                              alt={chat.otherMember?.fullName}
-                            />
+                          <div className="w-12 rounded-full ring-2 ring-base-100 flex items-center justify-center bg-base-200 overflow-hidden">
+                            {chat.isGroup ? (
+                              chat.groupImage ? (
+                                <img src={chat.groupImage} alt={chat.name} className="size-full object-cover" />
+                              ) : (
+                                <UsersIcon className="size-6 text-primary" />
+                              )
+                            ) : (
+                              <img
+                                src={chat.otherMember?.profilePic || "/avatar-placeholder.png"}
+                                alt={chat.otherMember?.fullName}
+                              />
+                            )}
                           </div>
                         </div>
                         {/* Status indicator - derived from dynamic onlineUserIds */}
-                        <div className={`absolute bottom-0 right-0 size-3 border-2 border-base-100 rounded-full transition-colors duration-300 ${onlineUserIds.includes(chat.otherMember?.id) ? "bg-success" : "bg-base-content/20"
-                          }`} />
+                        {!chat.isGroup && (
+                          <div className={`absolute bottom-0 right-0 size-3 border-2 border-base-100 rounded-full transition-colors duration-300 ${onlineUserIds.includes(chat.otherMember?.id) ? "bg-success" : "bg-base-content/20"
+                            }`} />
+                        )}
                       </div>
 
                       <div className="flex-1 text-left min-w-0">
                         <div className="flex justify-between items-start mb-0.5">
-                          <p className={`font-bold truncate ${selectedChatId === chat.id ? "" : "text-base-content"}`}>
-                            {chat.otherMember?.fullName}
+                          <p className={`font-bold truncate flex items-center gap-1 ${selectedChatId === chat.id ? "" : "text-base-content"}`}>
+                            {chat.isGroup ? chat.name : chat.otherMember?.fullName}
+                            {isMuted && <BellOffIcon className="size-3 opacity-50" />}
                           </p>
                           {chat.lastMessage && (
                             <span className={`text-[10px] ${selectedChatId === chat.id ? "opacity-70" : "opacity-40"}`}>
@@ -154,7 +242,7 @@ const CollaboratorsPage = () => {
 
                       {unreadCount > 0 && (
                         <div className="flex flex-col items-end gap-1">
-                          <div className="badge badge-primary badge-sm animate-bounce">
+                          <div className={`badge badge-sm animate-bounce ${isMuted ? 'badge-ghost' : 'badge-primary'}`}>
                             {unreadCount}
                           </div>
                         </div>
@@ -175,8 +263,8 @@ const CollaboratorsPage = () => {
             <SecureChat
               chatId={selectedChatId}
               currentUserId={authUser?.id}
-              targetUserId={activeChat.otherMember?.id}
-              targetUserName={activeChat.otherMember?.fullName}
+              targetUserId={activeChat.isGroup ? null : activeChat.otherMember?.id}
+              targetUserName={activeChat.isGroup ? activeChat.name : activeChat.otherMember?.fullName}
             />
           </div>
         ) : (
@@ -203,6 +291,62 @@ const CollaboratorsPage = () => {
         )}
       </div>
 
+      {contextMenu && contextMenu.data && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>
+          <li>
+            <button
+              onClick={() => handlePinToggle(contextMenu.data)}
+              className="flex items-center gap-2"
+            >
+              {contextMenu.data.isPinnedToNavbar ? <PinOffIcon className="size-4" /> : <PinIcon className="size-4" />}
+              {contextMenu.data.isPinnedToNavbar ? "Unpin from Navbar" : "Pin to Navbar"}
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => handleMuteToggle(contextMenu.data.id)}
+              className="flex items-center gap-2"
+            >
+              <BellOffIcon className="size-4" />
+              {(unreadCounts[contextMenu.data.id]?.isMuted) ? "Unmute Notifications" : "Mute Notifications"}
+            </button>
+          </li>
+
+          {contextMenu.data.isGroup ? (
+            <li>
+              <button
+                onClick={() => handleLeaveGroup(contextMenu.data.id)}
+                className="flex items-center gap-2 text-error hover:bg-error/10 hover:text-error"
+              >
+                <LogOutIcon className="size-4" />
+                Leave Group
+              </button>
+            </li>
+          ) : (
+            <li>
+              <button
+                onClick={() => {
+                  const otherUserId = contextMenu.data.members?.find(m => m.id !== authUser.id)?.id;
+                  handleRemoveFriend(otherUserId, contextMenu.data.id);
+                }}
+                className="flex items-center gap-2 text-error hover:bg-error/10 hover:text-error"
+              >
+                <UserMinusIcon className="size-4" />
+                Remove Friend
+              </button>
+            </li>
+          )}
+        </ContextMenu>
+      )}
+
+      {isCreateGroupOpen && (
+        <CreateGroupModal onClose={(newChatId) => {
+          setIsCreateGroupOpen(false);
+          if (newChatId) {
+            handleChatSelect(newChatId);
+          }
+        }} />
+      )}
     </div>
   );
 };

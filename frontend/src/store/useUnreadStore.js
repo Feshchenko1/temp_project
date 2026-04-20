@@ -4,30 +4,85 @@ export const useUnreadStore = create((set, get) => ({
   unreadCounts: {}, 
   activeChatId: null,
 
-  setUnreadCounts: (counts) => set({ unreadCounts: counts }),
+  setUnreadCounts: (counts) => {
+    const formatted = {};
+    for (const [id, value] of Object.entries(counts)) {
+      if (typeof value === "number") {
+         formatted[id] = { count: value, isMuted: false };
+      } else {
+         formatted[id] = value;
+      }
+    }
+    set({ unreadCounts: formatted });
+  },
   setActiveChatId: (id) => set({ activeChatId: id }),
 
   incrementCount: (chatId) => {
     if (get().activeChatId === chatId) return;
 
-    set((state) => ({
-      unreadCounts: {
-        ...state.unreadCounts,
-        [chatId]: (state.unreadCounts[chatId] || 0) + 1,
-      },
-    }));
+    set((state) => {
+      const current = state.unreadCounts[chatId] || { count: 0, isMuted: false };
+      return {
+        unreadCounts: {
+          ...state.unreadCounts,
+          [chatId]: {
+            ...current,
+            count: current.count + 1,
+          },
+        },
+      };
+    });
   },
 
   clearCount: (chatId) => {
     set((state) => {
-      const newCounts = { ...state.unreadCounts };
-      delete newCounts[chatId];
-      return { unreadCounts: newCounts };
+      const current = state.unreadCounts[chatId];
+      if (!current) return state;
+      return {
+        unreadCounts: {
+          ...state.unreadCounts,
+          [chatId]: {
+            ...current,
+            count: 0
+          }
+        }
+      };
+    });
+  },
+  
+  toggleMuteOptimistic: (chatId) => {
+    set((state) => {
+      const current = state.unreadCounts[chatId] || { count: 0, isMuted: false };
+      return {
+        unreadCounts: {
+          ...state.unreadCounts,
+          [chatId]: {
+            ...current,
+            isMuted: !current.isMuted
+          }
+        }
+      }
+    });
+  },
+  
+  removeChatOptimistic: (chatId) => {
+    set((state) => {
+       const newCounts = { ...state.unreadCounts };
+       delete newCounts[chatId];
+       return { unreadCounts: newCounts };
     });
   },
 
   getTotalUnread: () => {
     const counts = get().unreadCounts;
-    return Object.values(counts).reduce((acc, curr) => acc + curr, 0);
+    return Object.values(counts).reduce((acc, curr) => {
+      const count = typeof curr === "number" ? curr : (curr?.count || 0);
+      const isMuted = curr?.isMuted || false;
+      if (!isMuted) {
+        return acc + count;
+      }
+      return acc;
+    }, 0);
   },
+
 }));

@@ -8,8 +8,8 @@ export const getPresignedUrlForScore = async (req, res) => {
   try {
     const { filename, fileType } = req.body;
     
-    if (!fileType.includes("pdf")) {
-      return res.status(400).json({ message: "Only PDF files are allowed for scores." });
+    if (!fileType.includes("pdf") && !fileType.startsWith("audio/")) {
+      return res.status(400).json({ message: "Only PDF and Audio files are allowed for scores." });
     }
 
     const uniqueId = crypto.randomUUID();
@@ -33,7 +33,7 @@ export const getPresignedUrlForScore = async (req, res) => {
 
 export const createScore = async (req, res) => {
   try {
-    const { title, artist, fileUrl, fileSize, pagesCount, tags } = req.body;
+    const { title, artist, fileUrl, audioUrl, fileSize, pagesCount, tags } = req.body;
     const userId = req.user.id;
 
     const score = await prisma.score.create({
@@ -41,6 +41,7 @@ export const createScore = async (req, res) => {
         title,
         artist,
         fileUrl,
+        audioUrl,
         fileSize,
         pagesCount,
         userId,
@@ -129,7 +130,7 @@ export const getScores = async (req, res) => {
 export const updateScore = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, artist, tags } = req.body;
+    const { title, artist, audioUrl, tags } = req.body;
     const userId = req.user.id;
 
     const existingScore = await prisma.score.findUnique({ where: { id } });
@@ -144,6 +145,7 @@ export const updateScore = async (req, res) => {
       data: {
         title,
         artist,
+        audioUrl,
         tags: tags ? {
           create: tags.map(tagName => ({
             tag: {
@@ -191,6 +193,10 @@ export const deleteScore = async (req, res) => {
 
     if (existingScore.fileUrl) {
       await deleteFile(existingScore.fileUrl);
+    }
+
+    if (existingScore.audioUrl) {
+      await deleteFile(existingScore.audioUrl);
     }
 
     await prisma.score.delete({ where: { id } });

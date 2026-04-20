@@ -30,10 +30,11 @@ export const useCallStore = create((set, get) => ({
     if (incomingCall) {
       set({
         activeCall: {
-          targetUserId: incomingCall.fromUserId,
+          targetUserId: incomingCall.fromUserId, // Might be null/ignored for groups
           targetName: incomingCall.callerName,
           chatId: incomingCall.chatId,
-          callType: incomingCall.callType || "video"
+          callType: incomingCall.callType || "video",
+          isGroupCall: incomingCall.isGroupCall || false // NEW
         },
         incomingCall: null,
         isInitiator: false,

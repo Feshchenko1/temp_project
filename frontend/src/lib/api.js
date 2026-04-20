@@ -129,6 +129,11 @@ export async function getOrCreateChatByUserId(targetUserId) {
   return response.data;
 }
 
+export async function createGroupChat(payload) {
+  const response = await axiosInstance.post("/chats/group", payload);
+  return response.data;
+}
+
 export async function getRecentChats() {
   const response = await axiosInstance.get("/chats/recent");
   return response.data;
@@ -189,4 +194,38 @@ export async function markChatAsRead(chatId) {
   return response.data;
 }
 
+export async function toggleMuteChat(chatId) {
+  const response = await axiosInstance.put(`/chats/${chatId}/mute`);
+  return response.data;
+}
+
+export async function togglePinChatNavbar(chatId) {
+  const response = await axiosInstance.put(`/chats/${chatId}/pin-navbar`);
+  return response.data;
+}
+
+export async function leaveChat(chatId) {
+  const response = await axiosInstance.delete(`/chats/${chatId}/leave`);
+  return response.data;
+}
+
+export async function addGroupMembers(chatId, payload) {
+  const response = await axiosInstance.post(`/chats/${chatId}/members`, payload);
+  return response.data;
+}
+
+export async function removeGroupMember(chatId, memberId) {
+  const response = await axiosInstance.delete(`/chats/${chatId}/members/${memberId}`);
+  return response.data;
+}
+
+export async function removeFriend(friendId) {
+  const response = await axiosInstance.delete(`/users/friends/${friendId}`);
+  return response.data;
+}
+
+export async function updateGroupDetails(chatId, payload) {
+  const response = await axiosInstance.put(`/chats/${chatId}/details`, payload);
+  return response.data;
+}
 

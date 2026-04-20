@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useSearchParams } from "react-router";
 
 import HomePage from "./pages/HomePage.jsx";
 import SignUpPage from "./pages/SignUpPage.jsx";
@@ -12,7 +12,7 @@ import ScoreLibraryPage from "./pages/ScoreLibraryPage.jsx";
 import CollaboratorsPage from "./pages/CollaboratorsPage.jsx";
 import ProfileSettingsPage from "./pages/ProfileSettingsPage.jsx";
 
-import { Toaster } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 
 import PageLoader from "./components/PageLoader.jsx";
 import useAuthUser from "./hooks/useAuthUser.js";
@@ -37,7 +37,8 @@ const App = () => {
   const { isLoading, authUser } = useAuthUser();
   const { theme } = useThemeStore();
   const { incrementUnread, fetchRequests, addRequest } = useNotificationStore();
-  const { setUnreadCounts, incrementCount, clearCount } = useUnreadStore();
+  const { setUnreadCounts, incrementCount, clearCount, setActiveChatId } = useUnreadStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   useIdentityHealer();
@@ -80,14 +81,15 @@ const App = () => {
         if (message.senderId !== authUser.id) {
           incrementCount(message.chatId);
 
+          const { activeChatId } = useUnreadStore.getState();
+          if (message.chatId !== activeChatId) {
+            queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
+          }
+
           const recentChats = queryClient.getQueryData(["recent-chats"]) || [];
           const chatExists = recentChats.some(c => c.id === message.chatId);
-
           if (!chatExists) {
-            queryClient.invalidateQueries(["recent-chats"]);
             socket.emit("join-chat", message.chatId);
-          } else {
-            queryClient.invalidateQueries(["recent-chats"]);
           }
         }
       };
@@ -119,25 +121,61 @@ const App = () => {
         queryClient.invalidateQueries(["recent-chats"]);
       };
 
+      const handleNewGroupChat = (chat) => {
+        socket.emit("join-chat", chat.id);
+        queryClient.invalidateQueries(["recent-chats"]);
+      };
+
+      const handleRemovedFromGroup = ({ chatId }) => {
+        queryClient.invalidateQueries(["recent-chats"]);
+        toast.error("You have been removed from the group session", { id: "kick-toast-" + chatId });
+      };
+
+      const handleGroupSync = () => {
+        queryClient.invalidateQueries(["recent-chats"]);
+      };
+      
+      const handleChatDeleted = ({ chatId }) => {
+        queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
+        const currentChatIdInUrl = searchParams.get("chatId");
+        if (currentChatIdInUrl === chatId) {
+          setSearchParams({});
+          setActiveChatId(null);
+          toast.error("You no longer have access to this chat.", { id: "chat-deleted-" + chatId });
+        }
+      };
+
       socket.on("new_friend_request", addRequest);
-      socket.on("receive_message", handleReceiveMessage);
+      socket.on("newMessage", handleReceiveMessage);
       socket.on("messagesRead", handleMessagesRead);
       socket.on("call:incoming", handleIncomingCall);
       socket.on("call:cancelled", handleCallCancelled);
       socket.on("user_deleted", handleUserDeleted);
+      socket.on("new_group_chat", handleNewGroupChat);
+      socket.on("removed_from_group", handleRemovedFromGroup);
+      socket.on("group_members_added", handleGroupSync);
+      socket.on("group_member_removed", handleGroupSync);
+      socket.on("group_details_updated", handleGroupSync);
+      socket.on("chat_deleted", handleChatDeleted);
 
       return () => {
         socket.off("new_friend_request", addRequest);
-        socket.off("receive_message", handleReceiveMessage);
+        socket.off("newMessage", handleReceiveMessage);
         socket.off("messagesRead", handleMessagesRead);
         socket.off("call:incoming", handleIncomingCall);
         socket.off("call:cancelled", handleCallCancelled);
         socket.off("user_deleted", handleUserDeleted);
+        socket.off("new_group_chat", handleNewGroupChat);
+        socket.off("removed_from_group", handleRemovedFromGroup);
+        socket.off("group_members_added", handleGroupSync);
+        socket.off("group_member_removed", handleGroupSync);
+        socket.off("group_details_updated", handleGroupSync);
+        socket.off("chat_deleted", handleChatDeleted);
       };
     } else {
       disconnectSocket();
     }
-  }, [authUser, incrementUnread, setUnreadCounts, incrementCount, clearCount, setIncomingCall, cancelIncomingCall, queryClient, fetchRequests, addRequest]);
+  }, [authUser, incrementUnread, setUnreadCounts, incrementCount, clearCount, setIncomingCall, cancelIncomingCall, queryClient, fetchRequests, addRequest, searchParams, setSearchParams, setActiveChatId]);
 
   if (isLoading) return <PageLoader />;
 
@@ -271,7 +309,9 @@ const App = () => {
         <VideoCallOverlay
           chatId={activeCall.chatId}
           targetUserId={activeCall.targetUserId}
+          targetName={activeCall.targetName}
           currentUserId={authUser.id}
+          isGroupCall={activeCall.isGroupCall} // Pass the new flag
           onEndCall={endCall}
         />
       )}
