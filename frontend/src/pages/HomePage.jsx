@@ -20,10 +20,15 @@ import { useContextMenu } from "../hooks/useContextMenu";
 import ContextMenu from "../components/ContextMenu";
 import toast from "react-hot-toast";
 import { useUnreadStore } from "../store/useUnreadStore";
+import Select from "react-select";
 
 import UserCard from "../components/UserCard";
 import NoFriendsFound from "../components/NoFriendsFound";
 import useAuthUser from "../hooks/useAuthUser";
+
+// Basic placeholder options (can be expanded later)
+const INSTRUMENT_OPTIONS = ["Piano", "Guitar", "Drums", "Bass", "Vocals", "Violin", "Synthesizer", "Saxophone"].map(i => ({ value: i, label: i }));
+const LANGUAGE_OPTIONS = ["English", "Spanish", "French", "German", "Japanese", "Ukrainian"].map(l => ({ value: l, label: l }));
 
 const HomePage = () => {
   const { authUser } = useAuthUser();
@@ -34,20 +39,43 @@ const HomePage = () => {
   const { contextMenu, handleContextMenu, closeContextMenu } = useContextMenu();
   const { unreadCounts } = useUnreadStore();
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedLocation, setDebouncedLocation] = useState("");
+  const [selectedInstruments, setSelectedInstruments] = useState([]);
+  const [selectedLearning, setSelectedLearning] = useState([]);
+  const [selectedLanguages, setSelectedLanguages] = useState([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setDebouncedLocation(locationQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery, locationQuery]);
+
   const { data: recentChats = [], isLoading: loadingFriends } = useQuery({
     queryKey: ["recent-chats"],
     queryFn: getRecentChats,
   });
 
-  const { 
-    data: recommendedData, 
+  const {
+    data: recommendedData,
     isLoading: loadingUsers,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ["users"],
-    queryFn: getRecommendedUsers,
+    queryKey: ["users", debouncedSearch, debouncedLocation, selectedInstruments, selectedLearning, selectedLanguages],
+    queryFn: ({ pageParam }) => getRecommendedUsers({
+      pageParam,
+      search: debouncedSearch,
+      location: debouncedLocation,
+      instrument: selectedInstruments.map(i => i.value).join(","),
+      learning: selectedLearning.map(i => i.value).join(","),
+      language: selectedLanguages.map(l => l.value).join(",")
+    }),
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
 
@@ -178,6 +206,37 @@ const HomePage = () => {
     }
   });
 
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: "3rem",
+      backgroundColor: "rgba(0, 0, 0, 0.2)",
+      borderColor: state.isFocused ? "rgba(255, 255, 255, 0.1)" : "transparent",
+      borderRadius: "1rem",
+      boxShadow: "none",
+      cursor: "pointer",
+    }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    menu: (base) => ({
+      ...base,
+      backgroundColor: "#1d232a",
+      borderRadius: "1rem",
+      border: "1px solid rgba(255,255,255,0.05)",
+      overflow: "hidden"
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isFocused ? "rgba(255,255,255,0.05)" : "transparent",
+      color: state.isFocused ? "#fff" : "rgba(255,255,255,0.6)",
+      cursor: "pointer",
+    }),
+    multiValue: (base) => ({ ...base, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "6px" }),
+    multiValueLabel: (base) => ({ ...base, color: "#fff" }),
+    input: (base) => ({ ...base, color: "#fff" }),
+    placeholder: (base) => ({ ...base, color: "rgba(255,255,255,0.3)" }),
+    indicatorSeparator: () => ({ display: "none" })
+  };
+
   useEffect(() => {
     const outgoingIds = new Set();
     if (outgoingFriendReqs && outgoingFriendReqs.length > 0) {
@@ -243,10 +302,10 @@ const HomePage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentChats.map((chat) => (
-                <UserCard 
-                  key={chat.id} 
-                  user={chat.otherMember} 
-                  chatId={chat.id} 
+                <UserCard
+                  key={chat.id}
+                  user={chat.otherMember}
+                  chatId={chat.id}
                   isCallActive={chat.isCallActive}
                   onContextMenu={(e, data) => handleContextMenu(e, data)}
                 >
@@ -264,12 +323,56 @@ const HomePage = () => {
 
           <section>
             <div className="mb-6 sm:mb-8">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Discover Musicians</h2>
-                  <p className="opacity-70">
-                    Discover perfect bandmates based on your profile
-                  </p>
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Discover Musicians</h2>
+                <p className="opacity-70 mb-6">Discover perfect bandmates based on your profile</p>
+
+                {/* FILTER UI */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-base-200/50 p-6 rounded-3xl border border-base-300">
+                  <input
+                    type="text"
+                    placeholder="Search by name..."
+                    className="input input-bordered w-full bg-black/20 rounded-2xl border-transparent focus:border-white/10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search location..."
+                    className="input input-bordered w-full bg-black/20 rounded-2xl border-transparent focus:border-white/10"
+                    value={locationQuery}
+                    onChange={(e) => setLocationQuery(e.target.value)}
+                  />
+                  <Select
+                    isMulti
+                    options={INSTRUMENT_OPTIONS}
+                    styles={customSelectStyles}
+                    placeholder="Plays instruments..."
+                    value={selectedInstruments}
+                    onChange={setSelectedInstruments}
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                  />
+                  <Select
+                    isMulti
+                    options={INSTRUMENT_OPTIONS}
+                    styles={customSelectStyles}
+                    placeholder="Wants to learn..."
+                    value={selectedLearning}
+                    onChange={setSelectedLearning}
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                  />
+                  <Select
+                    isMulti
+                    options={LANGUAGE_OPTIONS}
+                    styles={customSelectStyles}
+                    placeholder="Speaks..."
+                    value={selectedLanguages}
+                    onChange={setSelectedLanguages}
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                  />
                 </div>
               </div>
             </div>
@@ -346,11 +449,11 @@ const HomePage = () => {
                 })}
               </div>
             )}
-            
+
             {hasNextPage && (
               <div className="flex justify-center mt-8">
-                <button 
-                  onClick={() => fetchNextPage()} 
+                <button
+                  onClick={() => fetchNextPage()}
                   disabled={isFetchingNextPage}
                   className="btn btn-outline btn-primary px-8 rounded-full font-bold"
                 >

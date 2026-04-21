@@ -1,9 +1,16 @@
 import React from "react";
-import { Play, Pause, Trash2, Clock, User, Music2, MoreVertical } from "lucide-react";
+import { Play, Pause, Trash2, Clock, User, Music2, MoreVertical, Heart, Edit2 } from "lucide-react";
 import { useAudioStore } from "../store/useAudioStore";
 import useAuthUser from "../hooks/useAuthUser";
 
-const TrackCard = ({ track, onPlay, onDelete, onContextMenu }) => {
+const formatDuration = (seconds) => {
+  if (!seconds) return "--:--";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
+const TrackCard = ({ track, onPlay, onDelete, onContextMenu, isLiked, onToggleLike, onEdit }) => {
   const { currentTrack, isPlaying, togglePlayPause } = useAudioStore();
   const { authUser } = useAuthUser();
   const isSelected = currentTrack?.id === track.id;
@@ -61,18 +68,32 @@ const TrackCard = ({ track, onPlay, onDelete, onContextMenu }) => {
           </div>
           <div className="flex items-center gap-1">
             <button 
+              onClick={(e) => { e.stopPropagation(); onToggleLike(); }}
+              className={`btn btn-ghost btn-sm btn-square transition-all ${isLiked ? "text-error opacity-100" : "opacity-0 group-hover:opacity-100 hover:bg-base-200"}`}
+            >
+              <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
+            </button>
+            <button 
               onClick={(e) => { e.stopPropagation(); onContextMenu(e, track); }}
               className="btn btn-ghost btn-sm btn-square opacity-0 group-hover:opacity-100 transition-opacity hover:bg-base-200"
             >
               <MoreVertical size={16} />
             </button>
             {authUser?.id === track.userId && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); onDelete(track.id); }}
-                className="btn btn-ghost btn-sm btn-square text-error opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error/10"
-              >
-                <Trash2 size={16} />
-              </button>
+              <>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onEdit(track); }}
+                  className="btn btn-ghost btn-sm btn-square text-secondary opacity-0 group-hover:opacity-100 transition-opacity hover:bg-secondary/10"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onDelete(track.id); }}
+                  className="btn btn-ghost btn-sm btn-square text-error opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error/10"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -82,6 +103,10 @@ const TrackCard = ({ track, onPlay, onDelete, onContextMenu }) => {
             <Clock size={12} />
             <span className="text-[10px] font-black uppercase tracking-widest">
               {new Date(track.createdAt).toLocaleDateString()}
+            </span>
+            <span className="mx-1">•</span>
+            <span className="text-[10px] font-black tracking-widest">
+              {formatDuration(track.duration)}
             </span>
           </div>
           {isSelected && (

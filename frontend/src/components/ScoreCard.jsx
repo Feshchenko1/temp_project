@@ -1,5 +1,4 @@
 import React from "react";
-import { useScoreStore } from "../store/useScoreStore";
 import useAuthUser from "../hooks/useAuthUser";
 import {
   Heart,
@@ -18,6 +17,9 @@ import { useAudioStore } from "../store/useAudioStore";
 import { format } from "date-fns";
 import PdfPreview from "./PdfPreview";
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toggleFavoriteScore, deleteScore as deleteScoreApi } from "../lib/api";
+import toast from "react-hot-toast";
 
 const sanitizeFilename = (str) => {
   if (!str) return "";
@@ -28,7 +30,7 @@ const sanitizeFilename = (str) => {
 };
 
 const ScoreCard = ({ score, onEdit }) => {
-  const { toggleFavorite, deleteScore } = useScoreStore();
+  const queryClient = useQueryClient();
   const { authUser } = useAuthUser();
   const [detectedPages, setDetectedPages] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -38,6 +40,28 @@ const ScoreCard = ({ score, onEdit }) => {
 
   const isOwner = score.userId === authUser?.id;
   const favoritesCount = score._count?.favoritedBy || 0;
+
+  // Mutations
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: () => toggleFavoriteScore(score.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scores"] });
+    },
+    onError: () => {
+      toast.error("Failed to update favorite status");
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteScoreApi(score.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scores"] });
+      toast.success("Score removed from library");
+    },
+    onError: () => {
+      toast.error("Failed to delete score");
+    }
+  });
 
   const handleDownload = async () => {
     if (isDownloading) return;
@@ -61,6 +85,7 @@ const ScoreCard = ({ score, onEdit }) => {
 
       URL.revokeObjectURL(url);
     } catch (error) {
+       toast.error("Download failed");
     } finally {
       setIsDownloading(false);
     }
@@ -88,19 +113,24 @@ const ScoreCard = ({ score, onEdit }) => {
             <span className="text-xs font-bold text-red-500/80">{favoritesCount}</span>
           )}
           <button
-            onClick={() => toggleFavorite(score.id)}
+            onClick={() => toggleFavoriteMutation.mutate()}
+            disabled={toggleFavoriteMutation.isPending}
             className={`p-2 rounded-xl transition-all ${score.isFavorite
                 ? "bg-error/20 text-error scale-110 shadow-lg shadow-error/20"
                 : "bg-base-300/50 text-base-content/40 hover:text-error hover:bg-error/10"
               }`}
           >
-            <Heart size={18} fill={score.isFavorite ? "currentColor" : "none"} />
+            {toggleFavoriteMutation.isPending ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Heart size={18} fill={score.isFavorite ? "currentColor" : "none"} />
+            )}
           </button>
         </div>
       </div>
 
       {/* Decorative Music Symbol or Icon / Real Preview */}
-      <div className="flex-1 flex items-center justify-center p-6 mb-4 bg-white/[0.02] rounded-xl border border-white/5 group-hover:bg-blue-500/[0.03] transition-colors relative overflow-hidden min-h-[280px]">
+      <div className="aspect-square w-full flex items-start justify-center mb-4 bg-white/[0.02] rounded-xl border border-white/5 group-hover:bg-blue-500/[0.03] transition-colors relative overflow-hidden">
         <PdfPreview
           fileUrl={score.fileUrl}
           className="absolute inset-0"
@@ -137,8 +167,17 @@ const ScoreCard = ({ score, onEdit }) => {
               <button onClick={() => onEdit(score)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-info transition-all" aria-label="Edit">
                 <Pencil size={16} />
               </button>
-              <button onClick={() => deleteScore(score.id)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-error transition-all" aria-label="Delete">
-                <Trash2 size={16} />
+              <button 
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to delete this score?")) {
+                    deleteMutation.mutate();
+                  }
+                }} 
+                disabled={deleteMutation.isPending}
+                className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-error transition-all" 
+                aria-label="Delete"
+              >
+                {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
               </button>
             </>
           )}

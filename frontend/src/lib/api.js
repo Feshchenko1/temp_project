@@ -51,9 +51,16 @@ export async function getUserFriends() {
   return response.data;
 }
 
-export const getRecommendedUsers = async ({ pageParam = null } = {}) => {
-  const url = pageParam ? `/users?cursor=${pageParam}` : "/users";
-  const res = await axiosInstance.get(url);
+export const getRecommendedUsers = async ({ pageParam = null, search, instrument, learning, language, location } = {}) => {
+  const params = new URLSearchParams();
+  if (pageParam) params.append("cursor", pageParam);
+  if (search) params.append("search", search);
+  if (instrument) params.append("instrument", instrument);
+  if (learning) params.append("learning", learning);
+  if (language) params.append("language", language);
+  if (location) params.append("location", location);
+
+  const res = await axiosInstance.get(`/users?${params.toString()}`);
   return res.data; // Expecting { users, nextCursor }
 };
 
@@ -230,9 +237,52 @@ export async function updateGroupDetails(chatId, payload) {
   return response.data;
 }
 
-export async function getTracks() {
-  const response = await axiosInstance.get("/tracks");
+export async function getScores({ pageParam = null, search = "", tag = "", favoritesOnly = false }) {
+  const params = new URLSearchParams();
+  if (pageParam) params.append("cursor", pageParam);
+  if (search) params.append("search", search);
+  if (tag) params.append("tag", tag);
+  if (favoritesOnly) params.append("favoritesOnly", "true");
+
+  const response = await axiosInstance.get(`/scores?${params.toString()}`);
+  return response.data; // { scores, nextCursor, totalCount }
+}
+
+export async function createScore(scoreData) {
+  const response = await axiosInstance.post("/scores", scoreData);
   return response.data;
+}
+
+export async function updateScore(scoreId, scoreData) {
+  const response = await axiosInstance.patch(`/scores/${scoreId}`, scoreData);
+  return response.data;
+}
+
+export async function getScorePresignedUrl(filename, fileType) {
+  const response = await axiosInstance.post("/scores/upload/presigned-url", {
+    filename,
+    fileType,
+  });
+  return response.data;
+}
+
+export async function deleteScore(scoreId) {
+  const response = await axiosInstance.delete(`/scores/${scoreId}`);
+  return response.data;
+}
+
+export async function toggleFavoriteScore(scoreId) {
+  const response = await axiosInstance.post(`/scores/${scoreId}/favorite`);
+  return response.data;
+}
+
+export async function getTracks({ pageParam = null, search = "" }) {
+  const params = new URLSearchParams();
+  if (pageParam) params.append("cursor", pageParam);
+  if (search) params.append("search", search);
+
+  const response = await axiosInstance.get(`/tracks?${params.toString()}`);
+  return response.data; // Now returns { tracks, nextCursor }
 }
 
 export async function createTrack(trackData) {
@@ -270,7 +320,12 @@ export async function deletePlaylist(id) {
   return response.data;
 }
 
+export async function toggleLikedTrack(trackId) {
+  const response = await axiosInstance.post(`/playlists/liked/${trackId}`);
+  return response.data;
+}
 
-
-
-
+export async function updateTrack(id, data) {
+  const response = await axiosInstance.put(`/tracks/${id}`, data);
+  return response.data;
+}

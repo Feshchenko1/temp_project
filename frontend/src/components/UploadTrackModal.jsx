@@ -9,6 +9,7 @@ const UploadTrackModal = ({ isOpen, onClose }) => {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [audioFile, setAudioFile] = useState(null);
+  const [audioDuration, setAudioDuration] = useState(0);
   const [coverFile, setCoverFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
@@ -55,6 +56,7 @@ const UploadTrackModal = ({ isOpen, onClose }) => {
         artist: artist || "Unknown Artist",
         fileUrl: audioResult.fileUrl,
         coverUrl,
+        duration: audioDuration,
       });
     } catch (error) {
       console.error("Upload error:", error);
@@ -121,7 +123,19 @@ const UploadTrackModal = ({ isOpen, onClose }) => {
                   type="file"
                   accept="audio/*"
                   className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={(e) => setAudioFile(e.target.files[0])}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setAudioFile(file);
+                      const audio = new Audio(URL.createObjectURL(file));
+                      audio.onloadedmetadata = () => {
+                        setAudioDuration(Math.floor(audio.duration));
+                      };
+                    } else {
+                      setAudioFile(null);
+                      setAudioDuration(0);
+                    }
+                  }}
                 />
                 {audioFile ? (
                   <>

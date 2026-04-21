@@ -69,8 +69,9 @@ export const createScore = async (req, res) => {
 
 export const getScores = async (req, res) => {
   try {
-    const { search, tag, userId, favoritesOnly } = req.query;
+    const { search, tag, userId, favoritesOnly, cursor, limit = 20 } = req.query;
     const currentUserId = req.user.id;
+    const take = parseInt(limit);
 
     const where = {};
     
@@ -83,13 +84,7 @@ export const getScores = async (req, res) => {
 
     if (tag) {
       const tagNames = tag.split(",");
-      where.tags = { 
-        some: { 
-          tag: { 
-            name: { in: tagNames } 
-          } 
-        } 
-      };
+      where.tags = { some: { tag: { name: { in: tagNames } } } };
     }
 
     if (userId) {
@@ -100,17 +95,20 @@ export const getScores = async (req, res) => {
       where.favoritedBy = { some: { userId: currentUserId } };
     }
 
+    // 1. Get total count for the active filters
+    const totalCount = await prisma.score.count({ where });
+
+    // 2. Fetch paginated scores
     const scores = await prisma.score.findMany({
+      take,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: cursor } : undefined,
       where,
       include: {
         user: { select: { fullName: true, profilePic: true } },
         tags: { include: { tag: true } },
-        _count: {
-          select: { favoritedBy: true }
-        },
-        favoritedBy: {
-          where: { userId: currentUserId }
-        }
+        _count: { select: { favoritedBy: true } },
+        favoritedBy: { where: { userId: currentUserId } }
       },
       orderBy: { createdAt: "desc" }
     });
@@ -121,8 +119,11 @@ export const getScores = async (req, res) => {
       tags: score.tags.map(t => t.tag.name)
     }));
 
-    res.status(200).json(formattedScores);
+    const nextCursor = scores.length === take ? scores[scores.length - 1].id : null;
+
+    res.status(200).json({ scores: formattedScores, nextCursor, totalCount });
   } catch (error) {
+    console.error("Error in getScores: ", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

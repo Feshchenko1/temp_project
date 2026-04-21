@@ -1,208 +1,337 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useScoreStore } from "../store/useScoreStore";
-import useAuthUser from "../hooks/useAuthUser";
-import { 
-  Search, 
-  Plus, 
-  Filter, 
-  Music2, 
-  Loader2, 
-  Library, 
-  Heart, 
-  LayoutGrid,
-  SearchX
-} from "lucide-react";
-import Select from "react-select";
+import { getScores } from "../lib/api";
 import ScoreCard from "../components/ScoreCard";
 import ScoreFormModal from "../components/ScoreFormModal";
+import Select from "react-select";
+import {
+  Search,
+  Plus,
+  Filter,
+  Music,
+  Heart,
+  X,
+  Loader2,
+  Library,
+  Zap
+} from "lucide-react";
 
 const ScoreLibraryPage = () => {
-  const { scores, getScores, isLoading, availableTags } = useScoreStore();
-  const { authUser } = useAuthUser();
-  
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const { availableTags } = useScoreStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingScore, setEditingScore] = useState(null);
+  const [selectedScore, setSelectedScore] = useState(null);
 
-  // Debounced fetch
+  // Search and Filter States
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterTags, setFilterTags] = useState([]); // Array of { value, label }
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  // Debounce search input
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      getScores({
-        search: searchQuery,
-        tag: selectedTags.map(t => t.value).join(","),
-        favoritesOnly: showFavoritesOnly
-      });
-    }, 500);
+    const timer = setTimeout(() => setDebouncedSearch(search), 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, selectedTags, showFavoritesOnly]);
+  // Map available tags to react-select options
+  const tagOptions = useMemo(() => 
+    availableTags.map(tag => ({ value: tag, label: tag })), 
+    [availableTags]
+  );
 
-  const tagOptions = availableTags.map(tag => ({ value: tag, label: tag }));
+  // Convert array of objects to comma-separated string for API
+  const filterTagString = useMemo(() => 
+    filterTags.map(t => t.value).join(","),
+    [filterTags]
+  );
+
+  // Infinite Query Setup
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    status,
+    error,
+    refetch
+  } = useInfiniteQuery({
+    queryKey: ["scores", { search: debouncedSearch, tag: filterTagString, favoritesOnly }],
+    queryFn: ({ pageParam }) => getScores({
+      pageParam,
+      search: debouncedSearch,
+      tag: filterTagString,
+      favoritesOnly
+    }),
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
+
+  // Intersection Observer for Infinite Scroll
+  const observerRef = useRef();
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerRef.current) observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleEdit = (score) => {
+    setSelectedScore(score);
+    setIsModalOpen(true);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setFilterTags([]);
+    setFavoritesOnly(false);
+  };
+
+  const allScores = useMemo(() => {
+    const scores = data?.pages.flatMap((page) => page.scores) || [];
+    // Discovery Engine: Simple randomization for initial view (no filters)
+    if (!debouncedSearch && !filterTagString && !favoritesOnly && data?.pages.length === 1) {
+      return [...scores].sort(() => Math.random() - 0.5);
+    }
+    return scores;
+  }, [data, debouncedSearch, filterTagString, favoritesOnly]);
 
   const customSelectStyles = {
-    control: (base) => ({
+    control: (base, state) => ({
       ...base,
-      backgroundColor: "var(--fallback-b1,oklch(var(--b1)/0.1))",
-      borderColor: "var(--fallback-b3,oklch(var(--b3)/0.5))",
-      borderRadius: "16px",
-      padding: "4px",
+      minHeight: "4rem", // Matches input-lg height
+      backgroundColor: "rgba(0, 0, 0, 0.2)", // Matches bg-base-200/50
+      borderColor: state.isFocused ? "rgba(255, 255, 255, 0.1)" : "transparent",
+      borderRadius: "1rem", // rounded-2xl
+      padding: "0 0.5rem",
       boxShadow: "none",
-      "&:hover": { borderColor: "var(--fallback-p,oklch(var(--p)/0.3))" },
-      backdropFilter: "blur(10px)",
-      color: "var(--fallback-bc,oklch(var(--bc)))"
+      "&:hover": {
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      },
+      cursor: "pointer",
     }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     menu: (base) => ({
       ...base,
-      backgroundColor: "var(--fallback-b1,oklch(var(--b1)))",
-      border: "1px solid var(--fallback-b3,oklch(var(--b3)))",
-      borderRadius: "16px",
-      zIndex: 50,
+      backgroundColor: "#1d232a", // Solid dark background (DaisyUI base-100)
+      borderRadius: "1rem",
+      marginTop: "8px",
+      border: "1px solid rgba(255,255,255,0.05)",
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+      overflow: "hidden"
+    }),
+    menuList: (base) => ({
+      ...base,
+      padding: "8px",
     }),
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isFocused ? "var(--fallback-p,oklch(var(--p)/0.1))" : "transparent",
-      color: state.isFocused ? "var(--fallback-p,oklch(var(--p)))" : "var(--fallback-bc,oklch(var(--bc)))",
+      backgroundColor: state.isFocused ? "rgba(255,255,255,0.05)" : "transparent",
+      color: state.isFocused ? "#fff" : "rgba(255,255,255,0.6)",
+      borderRadius: "0.5rem",
+      cursor: "pointer",
+      padding: "10px 12px",
+      fontWeight: "600",
+      fontSize: "14px",
+      "&:active": {
+        backgroundColor: "rgba(255,255,255,0.1)",
+      }
     }),
     multiValue: (base) => ({
       ...base,
-      backgroundColor: "var(--fallback-p,oklch(var(--p)/0.1))",
-      borderRadius: "8px",
+      backgroundColor: "rgba(255,255,255,0.1)",
+      borderRadius: "6px",
     }),
     multiValueLabel: (base) => ({
       ...base,
-      color: "var(--fallback-p,oklch(var(--p)))",
-      fontWeight: "800",
-      fontSize: "11px"
+      color: "#fff",
+      fontWeight: "700",
+      fontSize: "12px",
+      padding: "4px 8px",
     }),
     multiValueRemove: (base) => ({
       ...base,
-      color: "var(--fallback-p,oklch(var(--p)))",
-      "&:hover": { backgroundColor: "var(--fallback-er,oklch(var(--er)/0.1))" },
+      color: "rgba(255,255,255,0.5)",
+      "&:hover": {
+        backgroundColor: "rgba(255,0,0,0.2)",
+        color: "#ff0000",
+      },
     }),
-    input: (base) => ({ ...base, color: "var(--fallback-bc,oklch(var(--bc)))" }),
-    placeholder: (base) => ({ ...base, color: "var(--fallback-bc,oklch(var(--bc)/0.4))" })
-  };
-
-  const handleEdit = (score) => {
-    setEditingScore(score);
-    setIsModalOpen(true);
-  };
-
-  const handleCreate = () => {
-    setEditingScore(null);
-    setIsModalOpen(true);
+    input: (base) => ({
+      ...base,
+      color: "#fff",
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: "rgba(255,255,255,0.3)",
+      fontWeight: "600",
+      fontSize: "14px",
+    }),
+    indicatorSeparator: () => ({
+      display: "none", // Cleaner look
+    }),
+    dropdownIndicator: (base) => ({
+      ...base,
+      color: "rgba(255,255,255,0.3)",
+      "&:hover": {
+        color: "rgba(255,255,255,0.7)",
+      }
+    })
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-1000 bg-base-100">
-      {/* Header with Visual Impact */}
-      <div className="relative group p-10 md:p-16 rounded-[3rem] overflow-hidden border border-base-300 shadow-2xl bg-gradient-to-br from-primary/10 via-base-100 to-secondary/5">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-5"></div>
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-10">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest uppercase">
-              <Library size={14} /> Collective Knowledge
+    <div className="min-h-screen bg-base-100 p-4 lg:p-8">
+      {/* Header Section */}
+      <div className="max-w-[1600px] mx-auto space-y-8">
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary/10 rounded-2xl">
+                <Library className="text-primary" size={32} />
+              </div>
+              <h1 className="text-4xl font-black tracking-tight text-base-content">
+                Score <span className="text-primary font-outline-2">Library</span>
+              </h1>
             </div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-base-content flex items-center gap-6">
-              <Music2 className="size-14 md:size-20 text-primary animate-[pulse_4s_infinite]" />
-              Score Library
-            </h1>
-            <p className="text-base-content/60 text-xl font-medium max-w-xl leading-relaxed">
-              The platform's unified vault for sheet music. Off-loaded to the cloud, 
-              shared by the community, optimized for the <span className="text-base-content font-black">Studio Experience</span>.
+            <p className="text-base-content/50 font-bold uppercase tracking-widest text-[10px] pl-1">
+              {data?.pages[0]?.totalCount || 0} Professional Arrangements Found
             </p>
           </div>
-          <button 
-            onClick={handleCreate}
-            className="btn btn-primary btn-lg rounded-[2rem] px-10 font-black shadow-xl shadow-primary/20 group/btn transition-all hover:scale-105 active:scale-95"
+
+          <button
+            onClick={() => {
+              setSelectedScore(null);
+              setIsModalOpen(true);
+            }}
+            className="group btn btn-primary rounded-[1.5rem] px-8 h-16 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 border-none"
           >
-            <Plus className="size-6 transition-transform group-hover/btn:rotate-90" />
-            Upload Score
+            <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+            <span className="font-black uppercase tracking-wider text-xs">Add New Score</span>
           </button>
-        </div>
-      </div>
+        </header>
 
-      {/* Control Bar: Search & Filters */}
-      <div className="sticky top-6 z-40 flex flex-col lg:flex-row items-center gap-6 bg-base-100/60 p-5 rounded-[2.5rem] backdrop-blur-3xl border border-base-300 shadow-2xl">
-        <div className="w-full lg:w-1/3 relative group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 size-6 text-base-content/30 group-focus-within:text-primary transition-colors" />
-          <input
-            type="text"
-            placeholder="Search by title or artist..."
-            className="input input-lg input-bordered w-full pl-14 pr-6 bg-base-200/50 border-base-300 focus:border-primary/40 focus:bg-base-100 transition-all rounded-2xl text-base-content font-bold placeholder:text-base-content/30"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        {/* Filter Bar */}
+        <div className="bg-base-200/50 backdrop-blur-xl border border-base-300 rounded-[2.5rem] p-4 lg:p-6 shadow-2xl flex flex-col lg:flex-row gap-4 items-center relative z-[20]">
+          <div className="relative flex-1 w-full group">
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-base-content/30 group-focus-within:text-primary transition-colors" size={20} />
+            <input
+              type="text"
+              placeholder="Search by title or artist..."
+              className="w-full bg-base-100/50 border-2 border-base-300 focus:border-primary rounded-[2rem] pl-16 pr-6 h-14 font-medium transition-all outline-none text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-        <div className="w-full lg:flex-1">
-          <Select
-            isMulti
-            options={tagOptions}
-            styles={customSelectStyles}
-            placeholder="Filter by instrument, genre, or level..."
-            value={selectedTags}
-            onChange={setSelectedTags}
-          />
-        </div>
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="w-full lg:w-auto min-w-[300px]">
+              <Select
+                isMulti
+                options={tagOptions}
+                styles={customSelectStyles}
+                placeholder="Filter by instrument, genre, or level..."
+                value={filterTags}
+                onChange={setFilterTags}
+                menuPortalTarget={document.body}
+                menuPosition="fixed"
+              />
+            </div>
 
-        <div className="w-full lg:w-auto flex items-center gap-3 border-l border-base-300 pl-4">
-          <button 
-            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`btn btn-ghost btn-lg gap-3 rounded-2xl px-6 transition-all ${
-              showFavoritesOnly ? "bg-error/10 text-error border-error/20" : "text-base-content/50 hover:bg-base-200"
-            }`}
-          >
-            <Heart size={22} fill={showFavoritesOnly ? "currentColor" : "none"} />
-            <span className="font-black uppercase tracking-widest text-xs">Favorites</span>
-          </button>
-          <div className="hidden lg:block w-px h-10 bg-base-300 mx-2"></div>
-          <div className="p-3 text-primary bg-primary/10 rounded-2xl shadow-inner">
-            <LayoutGrid size={28} />
+            <button
+              onClick={() => setFavoritesOnly(!favoritesOnly)}
+              className={`btn h-14 rounded-[2rem] px-6 gap-3 transition-all border-none ${favoritesOnly ? "bg-error text-error-content shadow-lg shadow-error/20" : "bg-base-100 border-2 border-base-300 hover:border-error hover:text-error"
+                }`}
+            >
+              <Heart size={18} fill={favoritesOnly ? "currentColor" : "none"} />
+              <span className="text-xs font-black uppercase tracking-wider">Favorites</span>
+            </button>
+
+            {(search || filterTags.length > 0 || favoritesOnly) && (
+              <button
+                onClick={clearFilters}
+                className="btn btn-ghost h-14 rounded-[2rem] px-6 text-xs font-black uppercase tracking-wider gap-2"
+              >
+                <X size={18} />
+                Reset
+              </button>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Main Grid Section */}
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 space-y-4">
-          <Loader2 className="size-12 text-blue-500 animate-spin" />
-          <p className="text-gray-500 font-bold tracking-widest uppercase text-xs">Curating your library...</p>
-        </div>
-      ) : scores.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-20">
-          {scores.map((score) => (
-            <ScoreCard key={score.id} score={score} onEdit={handleEdit} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-40 space-y-8 text-center bg-base-200/50 rounded-[4rem] border border-dashed border-base-300 mx-4">
-          <div className="p-8 bg-base-100 rounded-full shadow-inner ring-1 ring-base-300">
-            <SearchX size={80} className="text-base-content/20" />
+        {/* Content Section */}
+        {status === "pending" ? (
+          <div className="flex flex-col items-center justify-center py-32 space-y-4">
+            <Loader2 size={48} className="animate-spin text-primary opacity-20" />
+            <p className="font-black text-xs uppercase tracking-[0.2em] opacity-30">Synchronizing Library...</p>
           </div>
-          <div className="space-y-3">
-            <h3 className="text-3xl font-black text-base-content">No scores found</h3>
-            <p className="text-base-content/50 max-w-sm font-medium">
-              We couldn't find any sheet music matching your criteria. Try adjusting your filters or upload a new masterpiece.
+        ) : status === "error" ? (
+          <div className="bg-error/10 border-2 border-error/20 rounded-[2.5rem] p-12 text-center max-w-2xl mx-auto">
+            <Music size={48} className="mx-auto mb-6 text-error opacity-50" />
+            <h2 className="text-2xl font-black mb-4">Connection Failed</h2>
+            <p className="text-base-content/60 font-medium mb-8">
+              We couldn't reach the Harmonix servers. Please check your connection.
             </p>
+            <button onClick={() => refetch()} className="btn btn-error px-12 rounded-2xl">Retry</button>
           </div>
-          <button 
-            onClick={() => { setSearchQuery(""); setSelectedTags([]); setShowFavoritesOnly(false); }}
-            className="btn btn-link no-underline text-primary font-black uppercase tracking-widest text-xs hover:text-primary-focus transition-all"
-          >
-            Clear all filters
-          </button>
-        </div>
+        ) : allScores.length === 0 ? (
+          <div className="bg-base-200/50 rounded-[3rem] p-24 text-center border-4 border-dashed border-base-300 flex flex-col items-center justify-center space-y-6">
+            <div className="w-24 h-24 bg-base-300 rounded-full flex items-center justify-center">
+              <Plus size={40} className="text-base-content/20" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black">No matching scores found</h2>
+              <p className="text-base-content/40 font-bold text-xs uppercase tracking-widest">Try adjusting your filters or add a new piece</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {allScores.map((score) => (
+                <ScoreCard key={score.id} score={score} onEdit={handleEdit} />
+              ))}
+            </div>
+
+            {/* Pagination / Loading State */}
+            <div ref={observerRef} className="py-16 text-center">
+              {isFetchingNextPage ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex gap-2">
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce"></span>
+                  </div>
+                  <p className="font-black text-[10px] uppercase tracking-widest text-primary/40">Loading more highlights</p>
+                </div>
+              ) : hasNextPage ? (
+                <p className="font-black text-[10px] uppercase tracking-widest text-base-content/20">Scroll to reveal more</p>
+              ) : (
+                <div className="flex flex-col items-center gap-2 opacity-20">
+                  <Zap size={24} />
+                  <p className="font-black text-[10px] uppercase tracking-widest">End of the collection</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <ScoreFormModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedScore(null);
+          }}
+          score={selectedScore}
+        />
       )}
-
-      {/* Modals */}
-      <ScoreFormModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        scoreToEdit={editingScore}
-      />
     </div>
   );
 };

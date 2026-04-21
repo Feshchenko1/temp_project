@@ -133,6 +133,7 @@ model Track {
   artist    String
   fileUrl   String
   coverUrl  String?
+  duration  Int?     @default(0) // NEW: Duration in seconds
   userId    String
   user      User     @relation("UserTracks", fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

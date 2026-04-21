@@ -6,6 +6,7 @@ import {
   addTrackToPlaylist,
   removeTrackFromPlaylist,
   deletePlaylist,
+  toggleLikedTrack,
 } from "../controllers/playlist.controller.js";
 
 const router = express.Router();
@@ -15,5 +16,6 @@ router.post("/", protectRoute, createPlaylist);
 router.post("/:playlistId/tracks/:trackId", protectRoute, addTrackToPlaylist);
 router.delete("/:playlistId/tracks/:trackId", protectRoute, removeTrackFromPlaylist);
 router.delete("/:id", protectRoute, deletePlaylist);
+router.post("/liked/:trackId", protectRoute, toggleLikedTrack);
 
 export default router;

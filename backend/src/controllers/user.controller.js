@@ -29,10 +29,24 @@ export async function getUserById(req, res) {
   }
 }
 
+const buildCaseVariations = (commaString) => {
+  if (!commaString) return [];
+  const terms = commaString.split(",").map(t => t.trim());
+  const variations = new Set();
+  
+  terms.forEach(term => {
+    variations.add(term); // Original (e.g., "Guitar")
+    variations.add(term.toLowerCase()); // Lowercase (e.g., "guitar")
+    variations.add(term.toUpperCase()); // Uppercase (e.g., "GUITAR")
+  });
+  
+  return Array.from(variations);
+};
+
 export async function getRecommendedUsers(req, res) {
   try {
     const currentUserId = req.user.id;
-    const cursor = req.query.cursor;
+    const { cursor, search, instrument, learning, language, location } = req.query;
     const take = 12; // 4 rows of 3 columns
 
     const currentUser = await prisma.user.findUnique({
@@ -41,18 +55,38 @@ export async function getRecommendedUsers(req, res) {
     });
     const friendIds = currentUser.friends.map(f => f.id);
 
+    // Base WHERE clause: Exclude self and current friends, only onboarded
+    const whereClause = {
+      id: { notIn: [currentUserId, ...friendIds] },
+      isOnboarded: true,
+    };
+
+    // Dynamic Filters
+    if (search) {
+      whereClause.fullName = { contains: search, mode: "insensitive" };
+    }
+    if (location) {
+      whereClause.location = { contains: location, mode: "insensitive" };
+    }
+    if (instrument) {
+      whereClause.instrumentsKnown = { hasSome: buildCaseVariations(instrument) };
+    }
+    if (learning) {
+      whereClause.instrumentsToLearn = { hasSome: buildCaseVariations(learning) };
+    }
+    if (language) {
+      whereClause.spokenLanguages = { hasSome: buildCaseVariations(language) };
+    }
+
     const queryOptions = {
       take,
-      where: {
-        id: { notIn: [currentUserId, ...friendIds] },
-        isOnboarded: true,
-      },
+      where: whereClause,
       select: {
         id: true, fullName: true, profilePic: true,
         instrumentsKnown: true, instrumentsToLearn: true,
         spokenLanguages: true, location: true, bio: true,
       },
-      orderBy: { createdAt: 'desc' } // Crucial for stable cursors
+      orderBy: { createdAt: 'desc' } // Crucial for stable cursors and prioritizing new users
     };
 
     if (cursor) {

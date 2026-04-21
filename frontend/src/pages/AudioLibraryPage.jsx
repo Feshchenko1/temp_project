@@ -1,10 +1,11 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { Search, Plus, Music, Loader2, Radio, Headphones, SearchX, LayoutGrid } from "lucide-react";
-import { getTracks, deleteTrack, getPlaylists, removeTrackFromPlaylist, deletePlaylist } from "../lib/api";
+import { getTracks, deleteTrack, getPlaylists, removeTrackFromPlaylist, deletePlaylist, toggleLikedTrack } from "../lib/api";
 import { useAudioStore } from "../store/useAudioStore";
 import TrackCard from "../components/TrackCard";
 import UploadTrackModal from "../components/UploadTrackModal";
+import EditTrackModal from "../components/EditTrackModal";
 import CreatePlaylistModal from "../components/CreatePlaylistModal";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
 import ContextMenu from "../components/ContextMenu";
@@ -19,14 +20,33 @@ const AudioLibraryPage = () => {
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
   const [activePlaylistId, setActivePlaylistId] = useState("all");
   const [trackToAdd, setTrackToAdd] = useState(null);
+  const [trackToEdit, setTrackToEdit] = useState(null);
   
   const { contextMenu, handleContextMenu, closeContextMenu } = useContextMenu();
   const playContext = useAudioStore((state) => state.playContext);
 
-  const { data: tracks = [], isLoading: isLoadingTracks } = useQuery({
-    queryKey: ["tracks"],
-    queryFn: getTracks,
+  const { 
+    data: tracksData, 
+    isLoading: isLoadingTracks, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
+    queryKey: ["tracks", searchQuery],
+    queryFn: ({ pageParam }) => getTracks({ pageParam, search: searchQuery }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
+
+  const globalTracks = useMemo(() => {
+    const all = tracksData?.pages.flatMap(page => page.tracks) || [];
+    // Only shuffle if there's no search query and we're on the first page
+    if (!searchQuery && tracksData?.pages.length === 1) {
+      return [...all].sort(() => Math.random() - 0.5);
+    }
+    return all; 
+  }, [tracksData, searchQuery]);
+
+  const totalCountInDb = tracksData?.pages[0]?.totalCount || 0;
 
   const { data: playlists = [], isLoading: isLoadingPlaylists } = useQuery({
     queryKey: ["playlists"],
@@ -37,6 +57,7 @@ const AudioLibraryPage = () => {
     mutationFn: deleteTrack,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tracks"] });
+      queryClient.invalidateQueries({ queryKey: ["playlists"] }); // FIX
       toast.success("Track removed from library");
     },
     onError: (error) => {
@@ -69,14 +90,37 @@ const AudioLibraryPage = () => {
   });
 
   const activePlaylist = playlists.find(p => p.id === activePlaylistId);
-  const sourceTracks = activePlaylistId === "all" 
-    ? tracks 
-    : (activePlaylist?.tracks || []);
+  const likedPlaylist = playlists.find(p => p.title === "Liked Songs");
+  
+  const isGlobal = activePlaylistId === "all";
 
-  const filteredTracks = sourceTracks.filter((track) => 
-    track?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    track?.artist?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const toggleLikeMutation = useMutation({
+    mutationFn: toggleLikedTrack,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["playlists"] })
+  });
+
+  const filteredTracks = isGlobal 
+    ? globalTracks 
+    : (activePlaylist?.tracks || []).filter(track => 
+        track?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        track?.artist?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+  const observerTarget = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasNextPage && isGlobal) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (observerTarget.current) observer.observe(observerTarget.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, fetchNextPage, isGlobal]);
 
   const isLoading = isLoadingTracks || isLoadingPlaylists;
 
@@ -142,7 +186,7 @@ const AudioLibraryPage = () => {
         <div className="flex items-center gap-4 px-6 border-l border-base-300">
            <div className="text-right hidden sm:block">
               <p className="text-[10px] font-black uppercase tracking-widest opacity-30 leading-none">Total Library</p>
-              <p className="text-xl font-black text-secondary">{tracks.length} Items</p>
+              <p className="text-xl font-black text-secondary">{totalCountInDb} Items</p>
            </div>
            <div className="p-3 text-secondary bg-secondary/10 rounded-2xl">
              <LayoutGrid size={24} />
@@ -154,7 +198,7 @@ const AudioLibraryPage = () => {
       <div className="flex flex-col lg:flex-row gap-10">
         {/* Left Sidebar: Playlist Navigation */}
         <aside className="w-full lg:w-72 space-y-8">
-           <div className="bg-base-100 p-6 rounded-[2.5rem] border border-base-300 shadow-xl space-y-6 sticky top-36">
+           <div className="bg-base-100 p-6 rounded-[2.5rem] border border-base-300 shadow-xl space-y-6 sticky top-36 max-h-[calc(100vh-10rem)] flex flex-col">
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-sm font-black uppercase tracking-widest text-base-content/40 flex items-center gap-2">
                    <Layers size={16} /> Library Context
@@ -167,7 +211,7 @@ const AudioLibraryPage = () => {
                 </button>
               </div>
 
-              <nav className="space-y-2">
+              <nav className="space-y-2 flex-1 overflow-y-auto pr-2 -mr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button 
                   onClick={() => setActivePlaylistId("all")}
                   className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${
@@ -180,7 +224,7 @@ const AudioLibraryPage = () => {
                     <Radio size={18} className={activePlaylistId === "all" ? "animate-pulse" : ""} />
                     <span className="font-bold text-sm">All Library Tracks</span>
                   </div>
-                  <span className="text-[10px] font-black opacity-30">{tracks.length}</span>
+                  <span className="text-[10px] font-black opacity-30">{totalCountInDb}</span>
                 </button>
 
                 <div className="h-px bg-base-300 mx-4 my-4 opacity-50" />
@@ -237,18 +281,28 @@ const AudioLibraryPage = () => {
               <p className="text-base-content/40 font-black tracking-widest uppercase text-xs">Synchronizing Audio Stream...</p>
             </div>
           ) : filteredTracks.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 pb-32">
-              {filteredTracks.map((track, index) => (
-                <TrackCard 
-                  key={track.id} 
-                  track={track} 
-                  onPlay={() => handlePlayTrack(index)} 
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                  onContextMenu={handleContextMenu}
-                />
-              ))}
+            <div className="pb-32">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                {filteredTracks.map((track, index) => (
+                  <TrackCard 
+                    key={track.id} 
+                    track={track} 
+                    onPlay={() => handlePlayTrack(index)} 
+                    onDelete={(id) => activePlaylistId === "all" ? deleteMutation.mutate(id) : removeMutation.mutate(id)}
+                    onContextMenu={handleContextMenu}
+                    isLiked={likedPlaylist?.tracks?.some(t => t.id === track.id)}
+                    onToggleLike={() => toggleLikeMutation.mutate(track.id)}
+                    onEdit={(track) => setTrackToEdit(track)}
+                  />
+                ))}
+              </div>
+              {isGlobal && hasNextPage && (
+                <div ref={observerTarget} className="flex justify-center py-8">
+                  <Loader2 className="size-8 text-secondary animate-spin" />
+                </div>
+              )}
             </div>
-          ) : activePlaylistId !== "all" && sourceTracks.length === 0 ? (
+          ) : activePlaylistId !== "all" && (activePlaylist?.tracks || []).length === 0 ? (
             <div className="flex flex-col items-center justify-center py-40 space-y-8 text-center bg-base-200/30 rounded-[4rem] border border-dashed border-base-300 mx-4 animate-in fade-in zoom-in-95 duration-500">
                <div className="p-10 bg-base-100 rounded-full shadow-2xl ring-1 ring-secondary/20 relative">
                  <ListMusic size={64} className="text-secondary opacity-20" />
@@ -280,6 +334,12 @@ const AudioLibraryPage = () => {
       <UploadTrackModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
+      />
+
+      <EditTrackModal 
+        isOpen={!!trackToEdit} 
+        track={trackToEdit} 
+        onClose={() => setTrackToEdit(null)} 
       />
 
       <CreatePlaylistModal 

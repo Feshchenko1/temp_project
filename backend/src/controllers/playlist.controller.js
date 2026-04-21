@@ -171,3 +171,39 @@ export const deletePlaylist = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+export const toggleLikedTrack = async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    const userId = req.user.id;
+
+    // 1. Find or Create "Liked Songs" playlist
+    let likedPlaylist = await prisma.playlist.findFirst({
+      where: { userId, title: "Liked Songs" }
+    });
+
+    if (!likedPlaylist) {
+      likedPlaylist = await prisma.playlist.create({
+        data: { title: "Liked Songs", description: "Your favorite tracks", userId }
+      });
+    }
+
+    // 2. Check if track is already liked
+    const existingLink = await prisma.playlistTrack.findUnique({
+      where: { playlistId_trackId: { playlistId: likedPlaylist.id, trackId } }
+    });
+
+    if (existingLink) {
+      await prisma.playlistTrack.delete({ where: { id: existingLink.id } });
+      return res.status(200).json({ message: "Removed from Liked Songs", isLiked: false });
+    } else {
+      await prisma.playlistTrack.create({
+        data: { playlistId: likedPlaylist.id, trackId }
+      });
+      return res.status(200).json({ message: "Added to Liked Songs", isLiked: true });
+    }
+  } catch (error) {
+    console.error("Error toggling like: ", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
