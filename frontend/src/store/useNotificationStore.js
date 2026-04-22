@@ -6,10 +6,8 @@ export const useNotificationStore = create((set, get) => ({
   lastActionTimestamp: 0,
   
   fetchRequests: async () => {
-    // SILENCE PERIOD: Ignore fetches within 2s of a manual action to prevent stale database state "echoes"
     const now = Date.now();
     if (now - get().lastActionTimestamp < 2000) {
-      // console.log("Notification fetch silenced to prevent ghost badge");
       return;
     }
 
@@ -17,7 +15,6 @@ export const useNotificationStore = create((set, get) => ({
       const data = await getFriendRequests();
       const newReqs = data.incomingReqs || [];
       
-      // Only update if the count has changed to prevent stale overwrites from React Query history
       set((state) => {
         if (state.pendingRequests.length !== newReqs.length) {
           return { pendingRequests: newReqs };
@@ -33,11 +30,10 @@ export const useNotificationStore = create((set, get) => ({
     await get().fetchRequests();
   },
 
-  // removeRequest is used for immediate optimistic feedback on badges
   removeRequest: (requestId) => {
     set((state) => ({
       pendingRequests: state.pendingRequests.filter(r => String(r.id) !== String(requestId)),
-      lastActionTimestamp: Date.now() // Trigger silence period
+      lastActionTimestamp: Date.now()
     }));
   },
 

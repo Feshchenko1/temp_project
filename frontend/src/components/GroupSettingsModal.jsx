@@ -8,8 +8,7 @@ import AddMemberModal from "./AddMemberModal";
 export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
   const queryClient = useQueryClient();
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
-  
-  // Edit Mode States
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [editedImage, setEditedImage] = useState(null);
@@ -21,7 +20,6 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
     enabled: !!chatId
   });
 
-  // Sync edited name when chat data loads or editing starts
   useEffect(() => {
     if (chat?.name) {
       setEditedName(chat.name);
@@ -43,7 +41,6 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
   const { mutate: handleLeaveGroup, isPending: isLeaving } = useMutation({
     mutationFn: () => leaveChat(chatId),
     onMutate: () => {
-      // Immediately close modal and signal redirect to avoid 403 on data refresh
       onClose(true);
     },
     onSuccess: () => {
@@ -86,10 +83,10 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
 
   const handleSave = () => {
     if (!editedName.trim()) return toast.error("Group name cannot be empty");
-    
+
     handleUpdateDetails({
       name: editedName,
-      groupImage: editedImage // This will be null if no new image was selected
+      groupImage: editedImage
     });
   };
 
@@ -114,7 +111,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-base-100 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 h-[80vh]">
-          
+
           {/* HEADER */}
           <div className="flex py-5 px-6 items-center justify-between border-b border-base-200 bg-base-100 sticky top-0 z-10">
             <div className="flex items-center gap-3">
@@ -127,7 +124,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
             </div>
             <div className="flex items-center gap-1">
               {isAdmin && !isEditing && (
-                <button 
+                <button
                   onClick={() => setIsEditing(true)}
                   className="btn btn-ghost btn-circle btn-sm text-primary"
                   title="Edit Group"
@@ -145,25 +142,24 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
             {/* GROUP INFO */}
             <div className="p-8 flex flex-col items-center border-b border-base-200 bg-gradient-to-b from-base-200/50 to-transparent">
               <div className="avatar mb-4 group relative">
-                <div 
-                  className={`w-24 h-24 rounded-3xl ring-4 ring-base-100 shadow-xl overflow-hidden bg-base-300 flex items-center justify-center ${isEditing ? "cursor-pointer" : ""}`}
-                  onClick={() => isEditing && fileInputRef.current?.click()}
+                <div
+                  className={`w-24 h-24 rounded-3xl ring-4 ring-base-100 shadow-xl overflow-hidden bg-base-300 !flex items-center justify-center ${isEditing ? "cursor-pointer" : ""}`}
                 >
                   {editedImage || chat.groupImage ? (
                     <img src={editedImage || chat.groupImage} alt={chat.name} className="object-cover w-full h-full" />
                   ) : (
                     <UsersIcon className="size-10 opacity-20" />
                   )}
-                  
+
                   {isEditing && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <CameraIcon className="size-6 text-white" />
                     </div>
                   )}
                 </div>
-                
+
                 {isEditing && (
-                  <input 
+                  <input
                     type="file"
                     ref={fileInputRef}
                     onChange={handleImageChange}
@@ -175,7 +171,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
 
               {isEditing ? (
                 <div className="w-full max-w-xs mb-2">
-                  <input 
+                  <input
                     type="text"
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
@@ -199,7 +195,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-xs font-bold uppercase tracking-widest opacity-40">Participants ({chat.members?.length})</h4>
                 {isAdmin && (
-                  <button 
+                  <button
                     onClick={() => setIsAddMemberOpen(true)}
                     className="btn btn-primary btn-xs rounded-lg px-3 flex items-center gap-1.5"
                   >
@@ -236,7 +232,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
 
                     <div className="flex items-center gap-2">
                       {isAdmin && member.id !== currentUserId && member.role !== "ADMIN" && (
-                        <button 
+                        <button
                           onClick={() => handleRemoveMember(member.id)}
                           className="btn btn-ghost btn-xs btn-square text-error opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Remove from group"
@@ -255,7 +251,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
           <div className="p-4 bg-base-200/50 flex justify-between items-center gap-3 border-t border-base-200">
             {isEditing ? (
               <>
-                <button 
+                <button
                   onClick={handleCancel}
                   className="btn btn-ghost btn-sm px-4 flex items-center gap-2"
                   disabled={isUpdating}
@@ -263,7 +259,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
                   <RotateCcwIcon className="size-4" />
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleSave}
                   className="btn btn-primary btn-sm px-6 flex items-center gap-2"
                   disabled={isUpdating || !editedName.trim()}
@@ -274,7 +270,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
               </>
             ) : (
               <>
-                <button 
+                <button
                   onClick={() => handleLeaveGroup()}
                   className="btn btn-ghost btn-sm text-error px-4 flex items-center gap-2"
                   disabled={isLeaving}
@@ -292,7 +288,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
       </div>
 
       {isAddMemberOpen && (
-        <AddMemberModal 
+        <AddMemberModal
           chatId={chatId}
           existingMembers={chat.members}
           onClose={() => setIsAddMemberOpen(false)}

@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
   const queryClient = useQueryClient();
   const { availableTags } = useScoreStore();
-  
+
   const [formData, setFormData] = useState({
     title: "",
     artist: "",
@@ -23,7 +23,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    if (score) {
+    if (score?.id) {
       setFormData({
         title: score.title || "",
         artist: score.artist || "",
@@ -33,8 +33,19 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
         fileSize: score.fileSize || 0,
         pagesCount: score.pagesCount || 0,
       });
+    } else {
+      setFormData({
+        title: "",
+        artist: "",
+        tags: [],
+        fileUrl: "",
+        audioUrl: "",
+        fileSize: 0,
+        pagesCount: 0,
+      });
+      setUploadProgress({ pdf: 0, audio: 0 });
     }
-  }, [score]);
+  }, [score, isOpen]);
 
   const createMutation = useMutation({
     mutationFn: createScore,
@@ -63,12 +74,9 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
       const filename = file.name;
       const fileType = file.type;
 
-      // Get presigned URL via API
       const { presignedUrl, fileUrl } = await getScorePresignedUrl(filename, fileType);
 
       if (!presignedUrl) throw new Error("Failed to get upload URL");
-
-      // Upload to R2/S3
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", presignedUrl);
       xhr.setRequestHeader("Content-Type", fileType);
@@ -113,7 +121,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
       return;
     }
 
-    if (score) {
+    if (score?.id) {
       updateMutation.mutate({ id: score.id, data: formData });
     } else {
       createMutation.mutate(formData);
@@ -143,7 +151,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
               <Music size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-black">{score ? "Edit" : "New"} Score</h2>
+              <h2 className="text-2xl font-black">{score?.id ? "Edit" : "New"} Score</h2>
               <p className="text-xs font-bold text-base-content/40 uppercase tracking-widest">Library Management</p>
             </div>
           </div>
@@ -190,7 +198,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
             {/* PDF Upload */}
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-base-content/40 ml-1">Score PDF (Required)</label>
-              <div 
+              <div
                 className={`relative h-32 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 cursor-pointer
                   ${formData.fileUrl ? "border-success/40 bg-success/5" : "border-base-300 hover:border-primary/40 hover:bg-primary/5"}`}
                 onClick={() => document.getElementById("pdfInput").click()}
@@ -218,7 +226,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
             {/* Audio Upload */}
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-base-content/40 ml-1">Audio Reference (Optional)</label>
-              <div 
+              <div
                 className={`relative h-32 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 cursor-pointer
                   ${formData.audioUrl ? "border-info/40 bg-info/5" : "border-base-300 hover:border-primary/40 hover:bg-primary/5"}`}
                 onClick={() => document.getElementById("audioInput").click()}
@@ -257,8 +265,8 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
                   type="button"
                   onClick={() => toggleTag(tag)}
                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border-2
-                    ${formData.tags.includes(tag) 
-                      ? "bg-primary border-primary text-primary-content shadow-lg shadow-primary/20" 
+                    ${formData.tags.includes(tag)
+                      ? "bg-primary border-primary text-primary-content shadow-lg shadow-primary/20"
                       : "bg-base-200 border-transparent hover:border-primary/30"}`}
                 >
                   {tag}
@@ -273,7 +281,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
           <button onClick={onClose} className="btn btn-ghost flex-1 rounded-2xl h-14 font-black uppercase text-xs">
             Cancel
           </button>
-          <button 
+          <button
             onClick={handleSubmit}
             disabled={isLoading}
             className="btn btn-primary flex-[2] rounded-2xl h-14 font-black uppercase text-xs shadow-xl shadow-primary/20"
@@ -281,7 +289,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
             {isLoading ? (
               <Loader2 className="animate-spin" size={20} />
             ) : (
-              score ? "Update Collection" : "Publish to Library"
+              score?.id ? "Update Collection" : "Publish to Library"
             )}
           </button>
         </div>

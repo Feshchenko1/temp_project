@@ -95,10 +95,8 @@ export const getScores = async (req, res) => {
       where.favoritedBy = { some: { userId: currentUserId } };
     }
 
-    // 1. Get total count for the active filters
     const totalCount = await prisma.score.count({ where });
 
-    // 2. Fetch paginated scores
     const scores = await prisma.score.findMany({
       take,
       skip: cursor ? 1 : 0,

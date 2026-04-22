@@ -15,6 +15,7 @@ import {
   markChatAsRead,
   toggleMuteChat,
   togglePinChat,
+  togglePinChatSidebar,
   leaveChat,
   createGroupChat,
   addGroupMembers,
@@ -40,9 +41,8 @@ router.get("/keys/:chatId", getGroupKeys);
 router.post("/keys", storeGroupKeys);
 router.put("/:id/mute", toggleMuteChat);
 router.put("/:id/pin-navbar", togglePinChat);
+router.put("/:id/pin-sidebar", togglePinChatSidebar);
 router.delete("/:id/leave", leaveChat);
-
-// Member Management
 router.post("/:id/members", addGroupMembers);
 router.delete("/:id/members/:memberId", removeGroupMember);
 router.put("/:id/details", updateGroupDetails);

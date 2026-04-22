@@ -88,7 +88,6 @@ export const deleteTrack = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized to delete this track" });
     }
 
-    // S3 Cleanup
     if (track.fileUrl) {
       await deleteFile(track.fileUrl);
     }
@@ -117,7 +116,6 @@ export const updateTrack = async (req, res) => {
     if (!track) return res.status(404).json({ message: "Track not found" });
     if (track.userId !== userId) return res.status(403).json({ message: "Unauthorized" });
 
-    // Clean up old cover if a new one is provided
     if (coverUrl && track.coverUrl && coverUrl !== track.coverUrl) {
       await deleteFile(track.coverUrl).catch(() => console.log("Failed to delete old cover"));
     }
@@ -127,7 +125,7 @@ export const updateTrack = async (req, res) => {
       data: {
         title: title || track.title,
         artist: artist || track.artist,
-        ...(coverUrl && { coverUrl }) // Only update if provided
+        ...(coverUrl && { coverUrl })
       }
     });
 

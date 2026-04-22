@@ -6,7 +6,7 @@ export const useCallStore = create((set, get) => ({
   isInCall: false,    
   isInitiator: false, 
   ringtone: null,     
-  activeChatCalls: [], // Array of chatIds that have an active call
+  activeChatCalls: [], 
 
   setActiveChatCalls: (chatIds) => set({ activeChatCalls: chatIds }),
   
@@ -65,7 +65,6 @@ export const useCallStore = create((set, get) => ({
       ringtone.currentTime = 0;
     }
     
-    // Optimistic local cleanup
     if (incomingCall) {
       set({ 
         incomingCall: null, 
@@ -82,7 +81,6 @@ export const useCallStore = create((set, get) => ({
       ringtone.currentTime = 0;
     }
 
-    // Optimistic local cleanup
     const chatIds = new Set(get().activeChatCalls);
     if (chatId) chatIds.delete(chatId);
     
@@ -109,7 +107,6 @@ export const useCallStore = create((set, get) => ({
       ringtone.currentTime = 0;
     }
 
-    // Optimistic local cleanup
     if (activeCall) {
       const chatIds = new Set(get().activeChatCalls);
       chatIds.delete(activeCall.chatId);

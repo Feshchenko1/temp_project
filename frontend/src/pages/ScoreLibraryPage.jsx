@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 import { useScoreStore } from "../store/useScoreStore";
+import { useModalStore } from "../store/useModalStore";
 import { getScores } from "../lib/api";
 import ScoreCard from "../components/ScoreCard";
-import ScoreFormModal from "../components/ScoreFormModal";
 import Select from "react-select";
 import {
   Search,
@@ -19,34 +20,38 @@ import {
 
 const ScoreLibraryPage = () => {
   const { availableTags } = useScoreStore();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedScore, setSelectedScore] = useState(null);
+  const { openScoreFormModal } = useModalStore();
 
-  // Search and Filter States
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterTags, setFilterTags] = useState([]); // Array of { value, label }
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get("search") || "";
+
+  const [search, setSearch] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  const [filterTags, setFilterTags] = useState([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
-  // Debounce search input
+  useEffect(() => {
+    const s = searchParams.get("search");
+    if (s !== null) {
+      setSearch(s);
+      setDebouncedSearch(s);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 500);
     return () => clearTimeout(timer);
   }, [search]);
-
-  // Map available tags to react-select options
-  const tagOptions = useMemo(() => 
-    availableTags.map(tag => ({ value: tag, label: tag })), 
+  const tagOptions = useMemo(() =>
+    availableTags.map(tag => ({ value: tag, label: tag })),
     [availableTags]
   );
 
-  // Convert array of objects to comma-separated string for API
-  const filterTagString = useMemo(() => 
+  const filterTagString = useMemo(() =>
     filterTags.map(t => t.value).join(","),
     [filterTags]
   );
 
-  // Infinite Query Setup
   const {
     data,
     fetchNextPage,
@@ -67,7 +72,6 @@ const ScoreLibraryPage = () => {
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
-  // Intersection Observer for Infinite Scroll
   const observerRef = useRef();
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -84,8 +88,7 @@ const ScoreLibraryPage = () => {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleEdit = (score) => {
-    setSelectedScore(score);
-    setIsModalOpen(true);
+    openScoreFormModal(score);
   };
 
   const clearFilters = () => {
@@ -96,7 +99,6 @@ const ScoreLibraryPage = () => {
 
   const allScores = useMemo(() => {
     const scores = data?.pages.flatMap((page) => page.scores) || [];
-    // Discovery Engine: Simple randomization for initial view (no filters)
     if (!debouncedSearch && !filterTagString && !favoritesOnly && data?.pages.length === 1) {
       return [...scores].sort(() => Math.random() - 0.5);
     }
@@ -106,10 +108,10 @@ const ScoreLibraryPage = () => {
   const customSelectStyles = {
     control: (base, state) => ({
       ...base,
-      minHeight: "4rem", // Matches input-lg height
-      backgroundColor: "rgba(0, 0, 0, 0.2)", // Matches bg-base-200/50
+      minHeight: "4rem",
+      backgroundColor: "rgba(0, 0, 0, 0.2)",
       borderColor: state.isFocused ? "rgba(255, 255, 255, 0.1)" : "transparent",
-      borderRadius: "1rem", // rounded-2xl
+      borderRadius: "1rem",
       padding: "0 0.5rem",
       boxShadow: "none",
       "&:hover": {
@@ -120,7 +122,7 @@ const ScoreLibraryPage = () => {
     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     menu: (base) => ({
       ...base,
-      backgroundColor: "#1d232a", // Solid dark background (DaisyUI base-100)
+      backgroundColor: "#1d232a",
       borderRadius: "1rem",
       marginTop: "8px",
       border: "1px solid rgba(255,255,255,0.05)",
@@ -175,7 +177,7 @@ const ScoreLibraryPage = () => {
       fontSize: "14px",
     }),
     indicatorSeparator: () => ({
-      display: "none", // Cleaner look
+      display: "none",
     }),
     dropdownIndicator: (base) => ({
       ...base,
@@ -206,10 +208,7 @@ const ScoreLibraryPage = () => {
           </div>
 
           <button
-            onClick={() => {
-              setSelectedScore(null);
-              setIsModalOpen(true);
-            }}
+            onClick={() => openScoreFormModal()}
             className="group btn btn-primary rounded-[1.5rem] px-8 h-16 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 border-none"
           >
             <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
@@ -322,16 +321,6 @@ const ScoreLibraryPage = () => {
         )}
       </div>
 
-      {isModalOpen && (
-        <ScoreFormModal
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedScore(null);
-          }}
-          score={selectedScore}
-        />
-      )}
     </div>
   );
 };

@@ -79,9 +79,10 @@ model ChatMember {
   chatId    String
   userId    String
   role      MemberRole @default(MEMBER)
-  isMuted   Boolean    @default(false)
-  isPinnedToNavbar Boolean @default(false)
-  joinedAt  DateTime   @default(now())
+  isMuted          Boolean    @default(false)
+  isPinnedToNavbar Boolean    @default(false)
+  isPinnedToSidebar Boolean   @default(false)
+  joinedAt         DateTime   @default(now())
 
   chat      Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -133,7 +134,7 @@ model Track {
   artist    String
   fileUrl   String
   coverUrl  String?
-  duration  Int?     @default(0) // NEW: Duration in seconds
+  duration  Int?     @default(0)
   userId    String
   user      User     @relation("UserTracks", fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

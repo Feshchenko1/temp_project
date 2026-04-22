@@ -136,12 +136,14 @@ export async function getChat(req, res) {
     }
     const formattedChat = {
       ...chat,
-      isCallActive: !!chat.activeCallId, // NEW
+      isCallActive: !!chat.activeCallId,
       isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
+      isPinnedToSidebar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToSidebar || false,
       members: chat.members.map(m => ({
         ...m.user,
         role: m.role,
         isPinnedToNavbar: m.isPinnedToNavbar,
+        isPinnedToSidebar: m.isPinnedToSidebar,
         joinedAt: m.joinedAt
       }))
     };
@@ -221,12 +223,14 @@ export async function getOrCreateChat(req, res) {
 
     const formattedChat = {
       ...chat,
-      isCallActive: !!chat.activeCallId, // NEW
+      isCallActive: !!chat.activeCallId,
       isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
+      isPinnedToSidebar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToSidebar || false,
       members: chat.members.map(m => ({
         ...m.user,
         role: m.role,
         isPinnedToNavbar: m.isPinnedToNavbar,
+        isPinnedToSidebar: m.isPinnedToSidebar,
         joinedAt: m.joinedAt
       }))
     };
@@ -284,13 +288,15 @@ export async function getRecentChats(req, res) {
       return {
         ...chat,
         otherMember,
-        isCallActive: !!chat.activeCallId, // NEW
+        isCallActive: !!chat.activeCallId,
         isPinnedToNavbar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToNavbar || false,
+        isPinnedToSidebar: chat.members.find(m => m.userId === currentUserId)?.isPinnedToSidebar || false,
         lastMessage: chat.messages[0] || null,
         members: chat.members.map(m => ({
           ...m.user,
           role: m.role,
           isPinnedToNavbar: m.isPinnedToNavbar,
+          isPinnedToSidebar: m.isPinnedToSidebar,
           joinedAt: m.joinedAt
         }))
       };
@@ -744,7 +750,6 @@ export async function addGroupMembers(req, res) {
         }))
       });
 
-      // P2002 Bugfix: Clean up any stale keys for these recipients in this chat before adding new ones
       await tx.groupKey.deleteMany({
         where: {
           chatId,
@@ -870,7 +875,6 @@ export async function removeGroupMember(req, res) {
       io.to(`chat_${chatId}`).emit("group_member_removed", { chatId, userId: memberIdToRemove });
     }
 
-    // Phantom Chat Cleanup: If no members left, delete the chat
     const remainingMembersCount = await prisma.chatMember.count({
       where: { chatId }
     });
@@ -913,7 +917,6 @@ export async function updateGroupDetails(req, res) {
 
     let updatedImageUrl = chat.groupImage;
     if (groupImage && groupImage !== chat.groupImage) {
-      // Check if it's new base64 data
       if (groupImage.startsWith("data:")) {
         updatedImageUrl = await uploadBase64Image(groupImage, "group-avatars");
       } else {
@@ -941,6 +944,28 @@ export async function updateGroupDetails(req, res) {
     res.status(200).json(updatedChat);
   } catch (error) {
     console.error("Error in updateGroupDetails:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function togglePinChatSidebar(req, res) {
+  try {
+    const { id: chatId } = req.params;
+    const currentUserId = req.user.id;
+
+    const membership = await prisma.chatMember.findUnique({
+      where: { chatId_userId: { chatId, userId: currentUserId } }
+    });
+
+    if (!membership) return res.status(403).json({ message: "Not a member" });
+
+    const updated = await prisma.chatMember.update({
+      where: { chatId_userId: { chatId, userId: currentUserId } },
+      data: { isPinnedToSidebar: !membership.isPinnedToSidebar }
+    });
+
+    res.status(200).json({ message: "Sidebar pin status updated", isPinnedToSidebar: updated.isPinnedToSidebar });
+  } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

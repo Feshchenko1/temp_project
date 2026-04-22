@@ -14,6 +14,8 @@ import chatRoutes from "./routes/chat.route.js";
 import scoreRoutes from "./routes/score.route.js";
 import trackRoutes from "./routes/track.route.js";
 import playlistRoutes from "./routes/playlist.route.js";
+import searchRoutes from "./routes/search.route.js";
+
 
 import { connectDB } from "./lib/db.js";
 
@@ -46,6 +48,8 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/scores", scoreRoutes);
 app.use("/api/tracks", trackRoutes);
 app.use("/api/playlists", playlistRoutes);
+app.use("/api/search", searchRoutes);
+
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../frontend/dist")));

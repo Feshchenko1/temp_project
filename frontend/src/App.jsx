@@ -28,9 +28,7 @@ import usePresence from "./hooks/usePresence.js";
 import { useCallStore } from "./store/useCallStore.js";
 import { useUnreadStore } from "./store/useUnreadStore.js";
 import { getUnreadCounts, getRecentChats } from "./lib/api.js";
-import IncomingCallModal from "./components/IncomingCallModal.jsx";
-import VideoCallOverlay from "./components/VideoCallOverlay.jsx";
-import ProfileModal from "./components/ProfileModal.jsx";
+import GlobalModals from "./components/GlobalModals.jsx";
 import useIdentityHealer from "./hooks/useIdentityHealer.js";
 
 
@@ -63,19 +61,17 @@ const App = () => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // Safety Sync: Keep useCallStore.activeChatCalls in sync with recent-chats query data
-  const { data: recentChats } = useQuery({ 
-    queryKey: ["recent-chats"], 
+  const { data: recentChats } = useQuery({
+    queryKey: ["recent-chats"],
     queryFn: getRecentChats,
-    enabled: isAuthenticated 
+    enabled: isAuthenticated
   });
   useEffect(() => {
     if (recentChats) {
       const activeCallsFromApi = recentChats.filter(c => c.isCallActive).map(c => c.id);
       const currentActiveInStore = useCallStore.getState().activeChatCalls;
-      
-      // Compare arrays (ignoring order)
-      const isSyncRequired = activeCallsFromApi.length !== currentActiveInStore.length || 
+
+      const isSyncRequired = activeCallsFromApi.length !== currentActiveInStore.length ||
         !activeCallsFromApi.every(id => currentActiveInStore.includes(id));
 
       if (isSyncRequired) {
@@ -123,7 +119,6 @@ const App = () => {
 
       const handleIncomingCall = (data) => {
         console.log("FRONTEND: Received call:incoming ->", data);
-        // Use .getState() to ensure we check the freshest state
         if (useCallStore.getState().isInCall) {
           socket.emit("call:response", {
             targetUserId: data.fromUserId,
@@ -139,7 +134,6 @@ const App = () => {
       const handleCallCancelled = ({ chatId }) => {
         console.log("FRONTEND: Received call:cancelled for chat ->", chatId);
         useCallStore.getState().cancelIncomingCall(chatId);
-        // Also manually patch cache for instant recognition
         if (chatId) {
           queryClient.setQueryData(["recent-chats"], (old) => {
             if (!old) return old;
@@ -165,34 +159,40 @@ const App = () => {
       const handleGroupSync = () => {
         queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
       };
-      
+
       const handleChatDeleted = ({ chatId }) => {
         queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
         const currentChatIdInUrl = new URLSearchParams(window.location.search).get("chatId");
         if (currentChatIdInUrl === chatId) {
-          window.history.pushState({}, '', window.location.pathname); // Clears query params safely
+          window.history.pushState({}, '', window.location.pathname);
           setActiveChatId(null);
           toast.error("You no longer have access to this chat.", { id: "chat-deleted-" + chatId });
         }
       };
-      
+
       const handleCallStatusChanged = ({ chatId, isActive, activeCallId }) => {
         console.log("FRONTEND: Received call:status_changed ->", { chatId, isActive, activeCallId });
-        // 1. Update Zustand store (for components like UserCard)
         useCallStore.getState().updateChatCallStatus(chatId, isActive);
 
-        // 2. Surgical Cache Patch (for components like Sidebar, Navbar, ChatList)
         queryClient.setQueryData(["recent-chats"], (oldChats) => {
           if (!oldChats) return oldChats;
-          return oldChats.map(chat => 
-            chat.id === chatId 
+          return oldChats.map(chat =>
+            chat.id === chatId
               ? { ...chat, activeCallId: isActive ? activeCallId : null, isCallActive: isActive }
               : chat
           );
         });
 
-        // 3. Mark as stale but don't refetch immediately (background sync)
         queryClient.invalidateQueries({ queryKey: ["recent-chats"], refetchType: 'none' });
+      };
+
+      const handleFriendRequestHandled = () => {
+        console.log("FRONTEND: Received friend_request_handled via WebSocket");
+        queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+        queryClient.invalidateQueries({ queryKey: ["outgoingFriendReqs"] });
+        queryClient.invalidateQueries({ queryKey: ["friends"] });
+        queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
+        queryClient.invalidateQueries({ queryKey: ["users"], exact: false });
       };
 
       socket.on("new_friend_request", addRequest);
@@ -206,6 +206,7 @@ const App = () => {
       socket.on("removed_from_group", handleRemovedFromGroup);
       socket.on("group_sync", handleGroupSync);
       socket.on("chat_deleted", handleChatDeleted);
+      socket.on("friend_request_handled", handleFriendRequestHandled);
 
       return () => {
         socket.off("new_friend_request", addRequest);
@@ -219,11 +220,12 @@ const App = () => {
         socket.off("removed_from_group", handleRemovedFromGroup);
         socket.off("group_sync", handleGroupSync);
         socket.off("chat_deleted", handleChatDeleted);
+        socket.off("friend_request_handled", handleFriendRequestHandled);
       };
     } else {
       disconnectSocket();
     }
-  }, [authUser, queryClient]); // Trimmed dependency array to prevent socket churn
+  }, [authUser, queryClient]);
 
   if (isLoading) return <PageLoader />;
 
@@ -362,34 +364,7 @@ const App = () => {
 
       <Toaster />
 
-      <IncomingCallModal />
-      <ProfileModal />
-
-      {activeCall && (
-        <VideoCallOverlay
-          chatId={activeCall.chatId}
-          targetUserId={activeCall.targetUserId}
-          targetName={activeCall.targetName}
-          currentUserId={authUser.id}
-          isGroupCall={activeCall.isGroupCall}
-          onEndCall={() => {
-            const socket = getSocket();
-            // 1. Explicit Intent: Tell the server to check room size and broadcast closure
-            if (socket) {
-              socket.emit("call:leave", { chatId: activeCall.chatId });
-            }
-            
-            // 2. Local optimistic UI patch
-            queryClient.setQueryData(["recent-chats"], (old) => {
-              if (!old) return old;
-              return old.map(c => c.id === activeCall.chatId ? { ...c, isCallActive: false, activeCallId: null } : c);
-            });
-            
-            // 3. Local state cleanup
-            useCallStore.getState().endCall();
-          }}
-        />
-      )}
+      <GlobalModals />
     </div>
   );
 };

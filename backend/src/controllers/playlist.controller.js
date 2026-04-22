@@ -31,7 +31,6 @@ export const getPlaylists = async (req, res) => {
       },
     });
 
-    // Flatten tracks for cleaner response
     const formattedPlaylists = playlists.map((p) => ({
       ...p,
       tracks: p.tracks.map((pt) => pt.track),
@@ -177,7 +176,6 @@ export const toggleLikedTrack = async (req, res) => {
     const { trackId } = req.params;
     const userId = req.user.id;
 
-    // 1. Find or Create "Liked Songs" playlist
     let likedPlaylist = await prisma.playlist.findFirst({
       where: { userId, title: "Liked Songs" }
     });
@@ -188,7 +186,6 @@ export const toggleLikedTrack = async (req, res) => {
       });
     }
 
-    // 2. Check if track is already liked
     const existingLink = await prisma.playlistTrack.findUnique({
       where: { playlistId_trackId: { playlistId: likedPlaylist.id, trackId } }
     });

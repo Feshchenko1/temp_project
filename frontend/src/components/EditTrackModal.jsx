@@ -15,7 +15,7 @@ const EditTrackModal = ({ isOpen, onClose, track }) => {
     if (track) {
       setTitle(track.title || "");
       setArtist(track.artist || "");
-      setCoverFile(null); // Reset file selection
+      setCoverFile(null);
     }
   }, [track]);
 
@@ -47,17 +47,15 @@ const EditTrackModal = ({ isOpen, onClose, track }) => {
     try {
       let coverUrl = track?.coverUrl || null;
 
-      // 1. Upload new Cover to S3 (if changed)
       if (coverFile) {
         const coverResult = await uploadFileDirectly(coverFile);
         coverUrl = coverResult.fileUrl;
       }
 
-      // 2. Update Track Record in Database
       await updateMutation.mutateAsync({
         title,
         artist,
-        ...(coverFile && { coverUrl }) // Only send if we updated it
+        ...(coverFile && { coverUrl })
       });
     } catch (error) {
       console.error("Update error:", error);

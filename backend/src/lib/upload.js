@@ -3,17 +3,14 @@ import { s3Client } from "./s3.js";
 import crypto from "crypto";
 
 /**
- * Uploads a base64 encoded image to S3/R2
- * @param {string} base64String - The base64 encoded image data
- * @param {string} folder - The folder to store the image in (e.g., 'avatars')
- * @returns {Promise<string>} - The public URL of the uploaded image
+ * @param {string} base64String
+ * @param {string} folder
+ * @returns {Promise<string>}
  */
 export async function uploadBase64Image(base64String, folder = "uploads") {
   if (!base64String) return null;
 
   try {
-    // Extract format and data from base64 string
-    // Format: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
     const matches = base64String.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       throw new Error("Invalid base64 string");

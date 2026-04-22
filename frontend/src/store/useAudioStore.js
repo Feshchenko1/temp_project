@@ -7,7 +7,7 @@ export const useAudioStore = create(
       currentTrack: null,
       isPlaying: false,
       volume: 0.7,
-      loopMode: 0, // 0: Off, 1: Loop Queue, 2: Loop Track
+      loopMode: 0, 
       isShuffled: false,
       currentTime: 0,
       duration: 0,
@@ -38,13 +38,10 @@ export const useAudioStore = create(
         
         if (!score) return;
 
-        // If it's already the current track, just toggle/ensure it's playing
         if (currentTrack?.id === score.id) {
           set({ isPlaying: true });
           return;
         }
-
-        // Use playContext for backward compatibility
         get().playContext([score], 0, "single");
       },
 
@@ -56,9 +53,9 @@ export const useAudioStore = create(
         
         if (nextIndex >= queue.length) {
           if (loopMode === 1) {
-            nextIndex = 0; // Loop entire queue
+            nextIndex = 0; 
           } else {
-            get().stopTrack(); // End of queue reaches
+            get().stopTrack(); 
             return;
           }
         }
@@ -75,7 +72,6 @@ export const useAudioStore = create(
         const { queue, currentIndex, currentTime } = get();
         if (queue.length === 0) return;
         
-        // If track played for more than 3 seconds, restart it (Standard behavior)
         if (currentTime > 3) {
           set({ seekTo: 0, currentTime: 0 });
           return;

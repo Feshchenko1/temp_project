@@ -1,11 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAudioStore } from "../store/useAudioStore";
 
-/**
- * Headless Audio Engine
- * This component is invisible and manages the actual HTML5 <audio> element.
- * It stays mounted at the layout level to prevent playback interruption during UI transitions.
- */
 const AudioEngine = () => {
   const {
     currentTrack,
@@ -21,7 +16,6 @@ const AudioEngine = () => {
 
   const audioRef = useRef(null);
 
-  // 1. Sync playback state (Play/Pause)
   useEffect(() => {
     if (!audioRef.current || !currentTrack) return;
 
@@ -37,15 +31,13 @@ const AudioEngine = () => {
     }
   }, [isPlaying, currentTrack]);
 
-  // 2. Sync Properties (Volume, Loop)
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
-      audioRef.current.loop = loopMode === 2; // Native loop only for single track repeat
+      audioRef.current.loop = loopMode === 2;
     }
   }, [volume, loopMode, currentTrack]);
 
-  // 3. Handle External Seek Commands
   useEffect(() => {
     if (seekTo !== null && audioRef.current) {
       audioRef.current.currentTime = seekTo;
@@ -58,11 +50,11 @@ const AudioEngine = () => {
   return (
     <audio
       ref={audioRef}
-      key={currentTrack.audioUrl || currentTrack.fileUrl} // Use URL as key to reset audio element on source change
+      key={currentTrack.audioUrl || currentTrack.fileUrl}
       src={currentTrack.audioUrl || currentTrack.fileUrl}
       onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
       onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-      onEnded={() => playNext()} // Let playNext handle the transition logic
+      onEnded={() => playNext()}
       className="hidden"
       aria-hidden="true"
     />

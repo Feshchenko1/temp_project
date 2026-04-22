@@ -21,7 +21,7 @@ const UserCard = ({ user, chatId, isCallActive, children, onContextMenu }) => {
   const moreLanguages = (user.spokenLanguages?.length || 0) - 1;
 
   return (
-    <div 
+    <div
       className="card bg-base-200 hover:shadow-xl transition-all duration-500 border border-base-300 h-[220px] group overflow-hidden relative"
       onContextMenu={(e) => onContextMenu && onContextMenu(e, { user, chatId })}
     >
@@ -64,7 +64,7 @@ const UserCard = ({ user, chatId, isCallActive, children, onContextMenu }) => {
           </div>
         </div>
 
-        {/* ULTRA-COMPACT TAGS (1 PER CATEGORY) */}
+        {/* ULTRA-COMPACT TAGS*/}
         <div className="flex flex-wrap gap-1.5 mt-2">
           {firstInstrument ? (
             <div className="flex items-center gap-1">

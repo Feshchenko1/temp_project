@@ -18,15 +18,12 @@ const NotificationsPage = () => {
   const { mutate: acceptRequestMutation, isPending: isAccepting } = useMutation({
     mutationFn: acceptFriendRequest,
     onMutate: async (requestId) => {
-      // 1. Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
 
-      // 2. Snapshot current state
       const previousStoreRequests = useNotificationStore.getState().pendingRequests;
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
 
-      // 3. Optimistic update
-      removeRequest(requestId); // This triggers the store update + silence period
+      removeRequest(requestId);
 
       if (previousQueryData) {
         queryClient.setQueryData(["friend-requests"], (old) => {
@@ -45,15 +42,12 @@ const NotificationsPage = () => {
       if (data?.chat) {
         queryClient.setQueryData(["recent-chats"], (oldChats) => {
           const currentChats = oldChats || [];
-          // Prevent duplicates
           if (currentChats.some(c => c.id === data.chat.id)) return currentChats;
-          // Inject at the top of the list
           return [data.chat, ...currentChats];
         });
       }
     },
     onError: (err, requestId, context) => {
-      // 4. Rollback
       if (context?.previousStoreRequests) {
         useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
       }
@@ -63,7 +57,6 @@ const NotificationsPage = () => {
       toast.error("Failed to accept friend request");
     },
     onSettled: () => {
-      // 5. Invalidate
       queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
       queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
@@ -73,15 +66,11 @@ const NotificationsPage = () => {
   const { mutate: rejectRequestMutation, isPending: isRejecting } = useMutation({
     mutationFn: rejectFriendRequest,
     onMutate: async (requestId) => {
-      // 1. Cancel
       await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
 
-      // 2. Snapshot
       const previousStoreRequests = useNotificationStore.getState().pendingRequests;
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
-
-      // 3. Optimistic update
-      removeRequest(requestId); // This triggers the store update + silence period
+      removeRequest(requestId);
 
       if (previousQueryData) {
         queryClient.setQueryData(["friend-requests"], (old) => {
@@ -99,7 +88,6 @@ const NotificationsPage = () => {
       toast.success("Friend request rejected");
     },
     onError: (err, requestId, context) => {
-      // 4. Rollback
       if (context?.previousStoreRequests) {
         useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
       }
@@ -109,7 +97,6 @@ const NotificationsPage = () => {
       toast.error("Failed to reject friend request");
     },
     onSettled: () => {
-      // 5. Invalidate
       queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
     }
   });

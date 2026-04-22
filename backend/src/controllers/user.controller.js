@@ -35,9 +35,9 @@ const buildCaseVariations = (commaString) => {
   const variations = new Set();
   
   terms.forEach(term => {
-    variations.add(term); // Original (e.g., "Guitar")
-    variations.add(term.toLowerCase()); // Lowercase (e.g., "guitar")
-    variations.add(term.toUpperCase()); // Uppercase (e.g., "GUITAR")
+    variations.add(term);
+    variations.add(term.toLowerCase());
+    variations.add(term.toUpperCase());
   });
   
   return Array.from(variations);
@@ -47,7 +47,7 @@ export async function getRecommendedUsers(req, res) {
   try {
     const currentUserId = req.user.id;
     const { cursor, search, instrument, learning, language, location } = req.query;
-    const take = 12; // 4 rows of 3 columns
+    const take = 12;
 
     const currentUser = await prisma.user.findUnique({
       where: { id: currentUserId },
@@ -55,13 +55,10 @@ export async function getRecommendedUsers(req, res) {
     });
     const friendIds = currentUser.friends.map(f => f.id);
 
-    // Base WHERE clause: Exclude self and current friends, only onboarded
     const whereClause = {
       id: { notIn: [currentUserId, ...friendIds] },
       isOnboarded: true,
     };
-
-    // Dynamic Filters
     if (search) {
       whereClause.fullName = { contains: search, mode: "insensitive" };
     }
@@ -86,7 +83,7 @@ export async function getRecommendedUsers(req, res) {
         instrumentsKnown: true, instrumentsToLearn: true,
         spokenLanguages: true, location: true, bio: true,
       },
-      orderBy: { createdAt: 'desc' } // Crucial for stable cursors and prioritizing new users
+      orderBy: { createdAt: 'desc' }
     };
 
     if (cursor) {
@@ -108,7 +105,6 @@ export async function getMyFriends(req, res) {
   try {
     const currentUserId = req.user.id;
     
-    // Find all accepted friend requests involving the current user
     const friendRequests = await prisma.friendRequest.findMany({
       where: {
         OR: [
@@ -146,7 +142,6 @@ export async function getMyFriends(req, res) {
       },
     });
 
-    // Extract the other user from each friend request
     const friends = friendRequests.map((friendReq) =>
       friendReq.senderId === currentUserId ? friendReq.recipient : friendReq.sender
     );
@@ -237,12 +232,9 @@ export async function acceptFriendRequest(req, res) {
       return res.status(403).json({ message: "You are not authorized to accept this request" });
     }
 
-    // Double-click protection: if it's already accepted, just return.
     if (friendRequest.status === "accepted") {
       return res.status(200).json({ message: "Friend request already accepted" });
     }
-
-    // Idempotency check: see if a 1-on-1 chat already exists between these two users
     const existingChat = await prisma.chat.findFirst({
       where: {
         isGroup: false,
@@ -254,13 +246,10 @@ export async function acceptFriendRequest(req, res) {
     });
 
     const finalChat = await prisma.$transaction(async (tx) => {
-      // Safe update to avoid race conditions causing errors
       const updateResult = await tx.friendRequest.updateMany({
         where: { id: requestId, status: "pending" },
         data: { status: "accepted" }
       });
-
-      // If count is 0, it means it was altered (accepted/deleted) by another concurrent request
       if (updateResult.count === 0 && friendRequest.status === "pending") {
         return null;
       }
@@ -276,7 +265,6 @@ export async function acceptFriendRequest(req, res) {
       });
 
       let chat;
-      // Only create a new chat if one doesn't exist
       if (!existingChat) {
         chat = await tx.chat.create({
           data: {
@@ -348,7 +336,6 @@ export async function acceptFriendRequest(req, res) {
       return res.status(200).json({ message: "Friend request already handled" });
     }
 
-    // Format chat exactly like getRecentChats
     const formattedChat = {
       ...finalChat,
       otherMember: finalChat.members.find(m => m.userId !== currentUserId)?.user || null,
@@ -364,6 +351,18 @@ export async function acceptFriendRequest(req, res) {
       message: "Friend request accepted",
       chat: formattedChat
     });
+
+    try {
+      const io = getIo();
+      if (io) {
+        io.to(`user_${friendRequest.senderId}`).emit("friend_request_handled", {
+          type: "accepted",
+          recipientId: currentUserId
+        });
+      }
+    } catch (err) {
+      console.error("Socket emit failed in acceptFriendRequest", err);
+    }
   } catch (error) {
     console.error("Error accepting friend request:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -392,6 +391,18 @@ export async function rejectFriendRequest(req, res) {
     });
 
     res.status(200).json({ message: "Friend request rejected" });
+
+    try {
+      const io = getIo();
+      if (io) {
+        io.to(`user_${friendRequest.senderId}`).emit("friend_request_handled", {
+          type: "rejected",
+          recipientId: currentUserId
+        });
+      }
+    } catch (err) {
+      console.error("Socket emit failed in rejectFriendRequest", err);
+    }
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
   }
@@ -625,7 +636,6 @@ export async function removeFriend(req, res) {
           where: { id: sharedChat.id }
         });
         
-        // Store chatId for emission after transaction
         req.deletedChatId = sharedChat.id;
       }
     });

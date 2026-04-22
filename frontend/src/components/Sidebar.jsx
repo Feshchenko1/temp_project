@@ -107,7 +107,7 @@ const Sidebar = () => {
                 </span>
               )}
 
-              {/* Badges for collapsed view (except collaborators which has its own above) */}
+              {/* Badges for collapsed view*/}
               {isCollapsed && (
                 <>
                   {isCollaborators && totalUnread > 0 && (
@@ -164,12 +164,11 @@ const Sidebar = () => {
 
         {/* DROPDOWN MENU - MANUALLY RENDERED WITH ANIMATION */}
         {isProfileMenuOpen && (
-          <ul 
-            className={`absolute menu p-2 shadow-2xl bg-base-100 rounded-box border border-base-300 z-[100] transition-all duration-200 ${
-              isCollapsed 
-                ? "bottom-0 left-full ml-4 w-56 origin-bottom-left animate-in fade-in zoom-in-95" 
+          <ul
+            className={`absolute menu p-2 shadow-2xl bg-base-100 rounded-box border border-base-300 z-[100] transition-all duration-200 ${isCollapsed
+                ? "bottom-0 left-full ml-4 w-56 origin-bottom-left animate-in fade-in zoom-in-95"
                 : "bottom-full left-4 right-4 mb-2 origin-bottom animate-in fade-in zoom-in-95"
-            }`}
+              }`}
           >
             <li className="menu-title px-4 py-2 text-xs font-bold uppercase tracking-wider text-base-content/50">
               Account Actions

@@ -3,7 +3,7 @@ import { UsersIcon, MessageSquareIcon, SearchIcon, PlusIcon, BellOffIcon, LogOut
 import { useCallStore } from "../store/useCallStore";
 import { useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getRecentChats, markChatAsRead, toggleMuteChat, leaveChat, removeFriend, togglePinChatNavbar } from "../lib/api";
+import { getRecentChats, markChatAsRead, toggleMuteChat, leaveChat, removeFriend, togglePinChatNavbar, togglePinChatSidebar } from "../lib/api";
 import useAuthUser from "../hooks/useAuthUser";
 import { useLayoutStore } from "../store/useLayoutStore";
 import { useUnreadStore } from "../store/useUnreadStore";
@@ -34,6 +34,9 @@ const CollaboratorsPage = () => {
   });
 
   const sortedChats = [...recentChats].sort((a, b) => {
+    if (a.isPinnedToSidebar && !b.isPinnedToSidebar) return -1;
+    if (!a.isPinnedToSidebar && b.isPinnedToSidebar) return 1;
+
     const dateA = new Date(a.lastMessage?.createdAt || a.updatedAt);
     const dateB = new Date(b.lastMessage?.createdAt || b.updatedAt);
     return dateB - dateA;
@@ -73,6 +76,22 @@ const CollaboratorsPage = () => {
       queryClient.invalidateQueries(["recent-chats"]);
       toast.success(chat.isPinnedToNavbar ? "Unpinned from Navbar" : "Pinned to Navbar");
     } catch (error) {
+      toast.error("Failed to update pin status");
+    }
+  };
+
+  const handlePinSidebarToggle = async (chat) => {
+    closeContextMenu();
+    queryClient.setQueryData(["recent-chats"], (oldChats) =>
+      oldChats?.map(c => c.id === chat.id ? { ...c, isPinnedToSidebar: !c.isPinnedToSidebar } : c)
+    );
+
+    try {
+      await togglePinChatSidebar(chat.id);
+      queryClient.invalidateQueries(["recent-chats"]);
+      toast.success(chat.isPinnedToSidebar ? "Unpinned from Sidebar" : "Pinned to Top");
+    } catch (error) {
+      queryClient.invalidateQueries(["recent-chats"]);
       toast.error("Failed to update pin status");
     }
   };
@@ -135,7 +154,7 @@ const CollaboratorsPage = () => {
               Collaborators
             </h1>
             <div className="flex gap-2">
-              <button 
+              <button
                 onClick={() => setIsCreateGroupOpen(true)}
                 className="btn btn-ghost btn-circle btn-sm"
                 title="New Group"
@@ -192,23 +211,26 @@ const CollaboratorsPage = () => {
                       onClick={() => handleChatSelect(chat.id)}
                       onContextMenu={(e) => handleContextMenu(e, chat)}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group relative ${selectedChatId === chat.id
-                          ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
-                          : "hover:bg-base-200"
+                        ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                        : "hover:bg-base-200"
                         }`}
                     >
                       <div className="relative">
                         <div className="avatar">
-                          <div className="w-12 rounded-full ring-2 ring-base-100 flex items-center justify-center bg-base-200 overflow-hidden">
+                          <div className="w-12 rounded-full ring-2 ring-base-100 bg-base-200 overflow-hidden">
                             {chat.isGroup ? (
                               chat.groupImage ? (
                                 <img src={chat.groupImage} alt={chat.name} className="size-full object-cover" />
                               ) : (
-                                <UsersIcon className="size-6 text-primary" />
+                                <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                                  <UsersIcon className="size-6 text-primary opacity-80" />
+                                </div>
                               )
                             ) : (
                               <img
                                 src={chat.otherMember?.profilePic || "/avatar-placeholder.png"}
                                 alt={chat.otherMember?.fullName}
+                                className="size-full object-cover"
                               />
                             )}
                           </div>
@@ -224,6 +246,9 @@ const CollaboratorsPage = () => {
                         <div className="flex justify-between items-start mb-0.5">
                           <p className={`font-bold truncate flex items-center gap-1.5 ${selectedChatId === chat.id ? "" : "text-base-content"}`}>
                             {chat.isGroup ? chat.name : chat.otherMember?.fullName}
+                            {chat.isPinnedToSidebar && (
+                              <PinIcon className="size-3 text-accent fill-accent/20 rotate-45" />
+                            )}
                             {isMuted && <BellOffIcon className="size-3 opacity-50" />}
                             {activeChatCalls.includes(chat.id) && (
                               <Video className="size-3.5 text-success animate-pulse shrink-0 fill-success/10" />
@@ -298,6 +323,15 @@ const CollaboratorsPage = () => {
 
       {contextMenu && contextMenu.data && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>
+          <li>
+            <button
+              onClick={() => handlePinSidebarToggle(contextMenu.data)}
+              className="flex items-center gap-2"
+            >
+              {contextMenu.data.isPinnedToSidebar ? <PinOffIcon className="size-4" /> : <PinIcon className="size-4" />}
+              {contextMenu.data.isPinnedToSidebar ? "Unpin from Top" : "Pin to Top"}
+            </button>
+          </li>
           <li>
             <button
               onClick={() => handlePinToggle(contextMenu.data)}

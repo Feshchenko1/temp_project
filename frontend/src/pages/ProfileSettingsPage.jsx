@@ -27,7 +27,6 @@ const ProfileSettingsPage = () => {
 
   const [isUploading, setIsUploading] = useState(false);
 
-  // Styling for react-select to match Studio Dark aesthetic
   const customSelectStyles = {
     control: (base, state) => ({
       ...base,

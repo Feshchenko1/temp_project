@@ -40,17 +40,14 @@ const UploadTrackModal = ({ isOpen, onClose }) => {
 
     setUploading(true);
     try {
-      // 1. Upload Audio to S3
       const audioResult = await uploadFileDirectly(audioFile);
-      
-      // 2. Upload Cover to S3 (Optional)
+
       let coverUrl = null;
       if (coverFile) {
         const coverResult = await uploadFileDirectly(coverFile);
         coverUrl = coverResult.fileUrl;
       }
 
-      // 3. Create Track Record in Database
       await createMutation.mutateAsync({
         title: title || audioFile.name.split(".")[0],
         artist: artist || "Unknown Artist",
@@ -154,10 +151,10 @@ const UploadTrackModal = ({ isOpen, onClose }) => {
                   <p className="text-xs font-bold mb-2 text-base-content/70 flex items-center gap-2">
                     <Music2 className="size-3" /> Audio Preview
                   </p>
-                  <audio 
-                    controls 
-                    className="w-full h-10" 
-                    src={URL.createObjectURL(audioFile)} 
+                  <audio
+                    controls
+                    className="w-full h-10"
+                    src={URL.createObjectURL(audioFile)}
                   />
                 </div>
               )}

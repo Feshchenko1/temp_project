@@ -25,9 +25,8 @@ export default function CreateGroupModal({ onClose }) {
       if (!groupName.trim()) throw new Error("Group name is required");
       if (selectedFriends.length < 1) throw new Error("Select at least 1 friend");
 
-      // Generate AES key for the group
       const aesKey = await generateSymmetricKey();
-      
+
       const allMembers = [
         ...selectedFriends.map(id => friends.find(f => f.id === id)),
         authUser
@@ -40,7 +39,7 @@ export default function CreateGroupModal({ onClose }) {
         if (!member.publicKey) continue;
         const pubKey = await importPublicKey(member.publicKey);
         const encryptedKey = await encryptSymmetricKey(pubKey, aesKey);
-        
+
         groupKeys.push({
           recipientId: member.id,
           encryptedKey: encryptedKey
@@ -54,7 +53,7 @@ export default function CreateGroupModal({ onClose }) {
         name: groupName,
         memberIds,
         groupKeys,
-        groupImage // Added group image base64
+        groupImage
       });
     },
     onSuccess: (newChat) => {
@@ -68,7 +67,7 @@ export default function CreateGroupModal({ onClose }) {
   });
 
   const toggleFriend = (id) => {
-    setSelectedFriends(prev => 
+    setSelectedFriends(prev =>
       prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
     );
   };
@@ -90,14 +89,14 @@ export default function CreateGroupModal({ onClose }) {
     reader.readAsDataURL(file);
   };
 
-  const filteredFriends = friends.filter(f => 
+  const filteredFriends = friends.filter(f =>
     f.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-base-100 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        
+
         <div className="flex py-4 px-6 items-center justify-between border-b border-base-200">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <UsersIcon className="size-5 text-primary" />
@@ -117,9 +116,9 @@ export default function CreateGroupModal({ onClose }) {
                 ) : (
                   <UsersIcon className="size-10 opacity-20" />
                 )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
+                <input
+                  type="file"
+                  accept="image/*"
                   onChange={handleImageChange}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
@@ -131,9 +130,9 @@ export default function CreateGroupModal({ onClose }) {
 
             <div className="w-full space-y-1">
               <label className="text-sm font-semibold opacity-70">Group Name</label>
-              <input 
-                type="text" 
-                placeholder="e.g. Band Practice, Tour Plans..." 
+              <input
+                type="text"
+                placeholder="e.g. Band Practice, Tour Plans..."
                 className="input input-bordered w-full bg-base-200 focus:bg-base-100 transition-colors"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
@@ -148,10 +147,10 @@ export default function CreateGroupModal({ onClose }) {
                 Members ({selectedFriends.length} selected)
               </label>
             </div>
-            
+
             <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 opacity-50" />
-              <input 
+              <input
                 type="text"
                 placeholder="Search friends..."
                 className="input input-sm input-bordered w-full pl-9"
@@ -168,8 +167,8 @@ export default function CreateGroupModal({ onClose }) {
               ) : (
                 filteredFriends.map(friend => (
                   <label key={friend.id} className="flex items-center gap-3 p-2 hover:bg-base-100 rounded-xl cursor-pointer transition-colors">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="checkbox checkbox-primary checkbox-sm rounded-md"
                       checked={selectedFriends.includes(friend.id)}
                       onChange={() => toggleFriend(friend.id)}
@@ -195,7 +194,7 @@ export default function CreateGroupModal({ onClose }) {
 
         <div className="p-4 bg-base-200 flex justify-end gap-3 border-t border-base-300">
           <button onClick={() => onClose()} className="btn btn-ghost disabled:opacity-50" disabled={isPending}>Cancel</button>
-          <button 
+          <button
             onClick={() => createGroup()}
             className="btn btn-primary shadow-lg shadow-primary/20"
             disabled={isPending || !groupName.trim() || selectedFriends.length === 0}

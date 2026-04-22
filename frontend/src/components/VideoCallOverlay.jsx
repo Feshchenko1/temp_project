@@ -7,11 +7,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallStore } from "../store/useCallStore";
 import { getSessionKey, encryptMessage } from "../lib/crypto";
 
-/**
- * LocalVideo: Memoized sub-component to prevent flickering on parent re-renders.
- * Uses useEffect to attach srcObject only when the stream reference changes.
- * Now targets container for fullscreen to keep our UI visible.
- */
 const LocalVideo = memo(({ stream, isScreensharing }) => {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -24,7 +19,6 @@ const LocalVideo = memo(({ stream, isScreensharing }) => {
     }
   }, [stream]);
 
-  // Sync fullscreen state with browser events
   useEffect(() => {
     const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFsChange);
@@ -56,7 +50,7 @@ const LocalVideo = memo(({ stream, isScreensharing }) => {
   const toggleFit = () => setIsFit(!isFit);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="relative w-full h-full rounded-2xl overflow-hidden bg-base-300 border border-white/5 flex items-center justify-center group"
     >
@@ -67,7 +61,7 @@ const LocalVideo = memo(({ stream, isScreensharing }) => {
         muted
         className={`w-full h-full object-center transition-all duration-300 ${isFit ? "object-contain bg-black" : "object-cover transform -scale-x-100"}`}
       />
-      
+
       {/* Label Badge */}
       <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 text-xs rounded shadow backdrop-blur-sm text-white flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-green-500" />
@@ -85,19 +79,19 @@ const LocalVideo = memo(({ stream, isScreensharing }) => {
           >
             {isFit ? "FILL" : "FIT"}
           </button>
-          
+
           <div className="w-[1px] h-4 bg-white/10 mx-1" />
 
-          <button 
-            onClick={togglePiP} 
-            className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors" 
+          <button
+            onClick={togglePiP}
+            className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
             title="Picture in Picture"
           >
             <PictureInPicture size={16} />
           </button>
-          <button 
-            onClick={toggleFullscreen} 
-            className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors" 
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           >
             {isFullscreen ? <Minimize2 size={16} /> : <Maximize size={16} />}
@@ -108,11 +102,6 @@ const LocalVideo = memo(({ stream, isScreensharing }) => {
   );
 });
 
-/**
- * RemoteVideo: Memoized sub-component for remote peer streams.
- * Ensures srcObject attachment is stable and isolated from parent re-renders.
- * Now includes local controls (PiP, Mute, Fullscreen) for a custom studio experience.
- */
 const RemoteVideo = memo(({ stream, userId, fitMode, resolveName, toggleFitMode }) => {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -125,7 +114,6 @@ const RemoteVideo = memo(({ stream, userId, fitMode, resolveName, toggleFitMode 
     }
   }, [stream]);
 
-  // Sync fullscreen state with browser events (e.g. if user presses Esc)
   useEffect(() => {
     const handleFsChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -166,7 +154,7 @@ const RemoteVideo = memo(({ stream, userId, fitMode, resolveName, toggleFitMode 
   const isContain = fitMode === "contain";
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="relative w-full h-full rounded-2xl overflow-hidden bg-base-300 border border-white/5 flex items-center justify-center group"
     >
@@ -176,15 +164,15 @@ const RemoteVideo = memo(({ stream, userId, fitMode, resolveName, toggleFitMode 
         playsInline
         className={`w-full h-full transition-all duration-300 ${isContain ? "object-contain bg-black/40" : "object-cover object-center"}`}
       />
-      
+
       {/* Name Badge */}
       <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 text-xs rounded shadow backdrop-blur-sm text-white flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
         {resolveName(userId)}
         {isLocallyMuted && <VolumeX size={12} className="text-error" />}
       </div>
-      
-      {/* Custom Control Bar (Google Meet Style) */}
+
+      {/* Custom Control Bar*/}
       <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-[-4px] group-hover:translate-y-0">
         <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md rounded-xl p-1 border border-white/10 shadow-2xl">
           {/* Fit Mode Toggle */}
@@ -195,7 +183,7 @@ const RemoteVideo = memo(({ stream, userId, fitMode, resolveName, toggleFitMode 
           >
             {isContain ? "FILL" : "FIT"}
           </button>
-          
+
           <div className="w-[1px] h-4 bg-white/10 mx-1" />
 
           {/* Local Mute */}
@@ -246,9 +234,9 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
   const [recordedSize, setRecordedSize] = useState(0);
 
   const socket = useRef(null);
-  const peerConnections = useRef(new Map()); // Map<userId, RTCPeerConnection>
-  const [remoteStreams, setRemoteStreams] = useState(new Map()); // Map<userId, MediaStream>
-  const [fitModes, setFitModes] = useState({}); // Map<userId, 'cover' | 'contain'>
+  const peerConnections = useRef(new Map());
+  const [remoteStreams, setRemoteStreams] = useState(new Map());
+  const [fitModes, setFitModes] = useState({});
   const queryClient = useQueryClient();
 
   const localStream = useRef(null);
@@ -301,7 +289,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
       }
     };
 
-    // Add local tracks
     if (stream) {
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     }
@@ -358,11 +345,7 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
         }
 
         localStream.current = stream;
-        
-        // Trigger a re-render so LocalVideo gets the stream
         setConnectionStatus("ready");
-
-        // Join call room and notify others
         socket.current.emit("call:join", { chatId: callDataRef.current.chatId });
       } catch (err) {
         toast.error("Could not access camera/mic.");
@@ -373,13 +356,12 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
 
     socket.current.on("call:user-joined", async ({ userId }) => {
       if (String(userId) === String(callDataRef.current.currentUserId)) return;
-      
+
       if (peerConnections.current.size >= 5) {
         toast.error("Room is full (Max 6 participants).");
         return;
       }
 
-      // Existing peers initiate offer to the newcomer
       const pc = createPeerConnection(userId, localStream.current);
       try {
         const offer = await pc.createOffer();
@@ -397,12 +379,12 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
     socket.current.on("webrtc-offer", async (data) => {
       const fromUserId = data.fromUserId;
       let pc = peerConnections.current.get(fromUserId);
-      
+
       if (!pc && peerConnections.current.size >= 5) {
         toast.error("Room is full (Max 6 participants).");
         return;
       }
-      
+
       if (!pc) {
         pc = createPeerConnection(fromUserId, localStream.current);
       }
@@ -457,15 +439,11 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
       }
       peerConnections.current.forEach((pc) => pc.close());
       peerConnections.current.clear();
-      
-      // Relying on backend disconnected reaper for dead connections instead of React unmounts
 
       socket.current?.off("call:user-joined");
       socket.current?.off("webrtc-offer");
       socket.current?.off("webrtc-answer");
       socket.current?.off("webrtc-ice-candidate");
-
-      // Aggressive track stop for all streams to avoid zombie browser banners
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
         screenStreamRef.current = null;
@@ -567,7 +545,6 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
           const file = new File([blob], prettyName, { type: "video/webm" });
           const { fileUrl, originalName } = await import("../lib/api").then(m => m.uploadFileDirectly(file));
 
-          // E2EE Encryption for the notification message
           const aesKey = await getSessionKey(chatId);
           const notificationText = "🎬 Collaboration session recorded.";
           const encryptedContent = aesKey ? await encryptMessage(aesKey, notificationText) : null;
@@ -575,7 +552,7 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
           const messagePayload = {
             chatId,
             content: encryptedContent,
-            text: notificationText, // Fallback/Optimistic
+            text: notificationText,
             fileUrl,
             originalName: originalName,
             fileType: "video/webm"
@@ -674,12 +651,12 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
   }, []);
 
   const streamArray = Array.from(remoteStreams.entries());
-  
+
   const getGridLayout = (count) => {
     if (count === 1) return "grid-cols-1 max-w-2xl mx-auto w-full";
     if (count === 2) return "grid-cols-1 md:grid-cols-2";
-    if (count === 3) return "grid-cols-1 md:grid-cols-3"; // 3 in a row
-    if (count === 4) return "grid-cols-1 md:grid-cols-2"; // 2x2 grid
+    if (count === 3) return "grid-cols-1 md:grid-cols-3";
+    if (count === 4) return "grid-cols-1 md:grid-cols-2";
     if (count >= 5) return "grid-cols-2 md:grid-cols-3";
     return "grid-cols-2";
   };
@@ -703,16 +680,16 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
 
       {/* Videos Layout Grid */}
       <div className={`flex-1 min-h-0 w-full max-w-7xl mx-auto grid ${getGridLayout(participantCount)} gap-4 relative auto-rows-fr p-2 md:p-4`}>
-        
+
         {/* Local Video */}
-        <LocalVideo 
-          stream={isScreensharing ? screenStreamRef.current : localStream.current} 
-          isScreensharing={isScreensharing} 
+        <LocalVideo
+          stream={isScreensharing ? screenStreamRef.current : localStream.current}
+          isScreensharing={isScreensharing}
         />
 
         {/* Remote Videos */}
         {streamArray.map(([userId, stream]) => (
-          <RemoteVideo 
+          <RemoteVideo
             key={userId}
             stream={stream}
             userId={userId}

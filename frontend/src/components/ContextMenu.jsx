@@ -8,22 +8,18 @@ const ContextMenu = ({ x, y, onClose, children }) => {
   useLayoutEffect(() => {
     if (menuRef.current) {
       const rect = menuRef.current.getBoundingClientRect();
-      const PADDING = 12; // Gap from the screen edge
+      const PADDING = 12;
 
       let newTop = y;
       let newLeft = x;
 
-      // 1. Bottom Collision: Shift UP just enough so the bottom of the menu hits the screen padding
       if (newTop + rect.height > window.innerHeight) {
         newTop = window.innerHeight - rect.height - PADDING;
       }
 
-      // 2. Right Collision: Shift LEFT just enough so the right side of the menu hits the padding
       if (newLeft + rect.width > window.innerWidth) {
         newLeft = window.innerWidth - rect.width - PADDING;
       }
-
-      // 3. Safety Check: Ensure the menu never goes off the top or left edges if the screen is very small
       newTop = Math.max(PADDING, newTop);
       newLeft = Math.max(PADDING, newLeft);
 
@@ -42,7 +38,7 @@ const ContextMenu = ({ x, y, onClose, children }) => {
         e.preventDefault();
         e.stopPropagation();
       }}
-      onClick={(e) => e.stopPropagation()} // Prevent closing via the hook when clicking inside, or allow it? Usually clicking a menu item closes it, so letting it propagate might be fine.
+      onClick={(e) => e.stopPropagation()}
     >
       {children}
     </ul>

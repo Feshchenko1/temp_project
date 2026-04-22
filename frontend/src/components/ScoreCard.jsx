@@ -41,7 +41,6 @@ const ScoreCard = ({ score, onEdit }) => {
   const isOwner = score.userId === authUser?.id;
   const favoritesCount = score._count?.favoritedBy || 0;
 
-  // Mutations
   const toggleFavoriteMutation = useMutation({
     mutationFn: () => toggleFavoriteScore(score.id),
     onSuccess: () => {
@@ -85,7 +84,7 @@ const ScoreCard = ({ score, onEdit }) => {
 
       URL.revokeObjectURL(url);
     } catch (error) {
-       toast.error("Download failed");
+      toast.error("Download failed");
     } finally {
       setIsDownloading(false);
     }
@@ -116,8 +115,8 @@ const ScoreCard = ({ score, onEdit }) => {
             onClick={() => toggleFavoriteMutation.mutate()}
             disabled={toggleFavoriteMutation.isPending}
             className={`p-2 rounded-xl transition-all ${score.isFavorite
-                ? "bg-error/20 text-error scale-110 shadow-lg shadow-error/20"
-                : "bg-base-300/50 text-base-content/40 hover:text-error hover:bg-error/10"
+              ? "bg-error/20 text-error scale-110 shadow-lg shadow-error/20"
+              : "bg-base-300/50 text-base-content/40 hover:text-error hover:bg-error/10"
               }`}
           >
             {toggleFavoriteMutation.isPending ? (
@@ -167,14 +166,14 @@ const ScoreCard = ({ score, onEdit }) => {
               <button onClick={() => onEdit(score)} className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-info transition-all" aria-label="Edit">
                 <Pencil size={16} />
               </button>
-              <button 
+              <button
                 onClick={() => {
                   if (window.confirm("Are you sure you want to delete this score?")) {
                     deleteMutation.mutate();
                   }
-                }} 
+                }}
                 disabled={deleteMutation.isPending}
-                className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-error transition-all" 
+                className="btn btn-square btn-sm bg-base-100/80 border-none backdrop-blur-md text-base-content hover:btn-error transition-all"
                 aria-label="Delete"
               >
                 {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}

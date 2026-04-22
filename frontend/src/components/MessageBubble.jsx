@@ -76,18 +76,14 @@ const MessageBubble = ({
     e.preventDefault();
 
     const MENU_WIDTH = 210;
-    const MENU_HEIGHT = 280; // Adjusted based on approximate total height of items
-    const PADDING = 12; // Gap from the screen edge
+    const MENU_HEIGHT = 280;
+    const PADDING = 12;
 
     let x = e.clientX;
     let y = e.clientY;
-
-    // Clamp to right edge
     if (x + MENU_WIDTH > window.innerWidth) {
       x = Math.max(PADDING, window.innerWidth - MENU_WIDTH - PADDING);
     }
-
-    // Clamp to bottom edge (This prevents the massive jump)
     if (y + MENU_HEIGHT > window.innerHeight) {
       y = Math.max(PADDING, window.innerHeight - MENU_HEIGHT - PADDING);
     }
@@ -117,7 +113,7 @@ const MessageBubble = ({
           ${highlightedMsgId === message.id ? 'ring-4 ring-primary ring-offset-4 ring-offset-base-300 bg-primary/20 scale-[1.01]' : ''} 
           ${isOwnMessage
             ? 'bg-primary text-primary-content'
-            : 'bg-base-200 text-base-content' // Додано text-base-content для вхідних
+            : 'bg-base-200 text-base-content'
           }`}
       >
         <div className="flex flex-col gap-1">
@@ -177,7 +173,6 @@ const MessageBubble = ({
           </div>
         </div>
 
-        {/* Секція футера: час та галочки */}
         <div className={`chat-footer opacity-70 text-[10px] mt-1 flex items-center gap-1 justify-end translate-y-1 
           ${isOwnMessage ? 'text-primary-content' : 'text-base-content'}`}>
           {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
@@ -199,7 +194,7 @@ const MessageBubble = ({
         </div>
       </div>
 
-      {/* Context Menu - Premium Telegram Style */}
+      {/* Context Menu*/}
       {contextMenu && (
         <div
           ref={contextMenuRef}

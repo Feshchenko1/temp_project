@@ -61,7 +61,7 @@ export const getRecommendedUsers = async ({ pageParam = null, search, instrument
   if (location) params.append("location", location);
 
   const res = await axiosInstance.get(`/users?${params.toString()}`);
-  return res.data; // Expecting { users, nextCursor }
+  return res.data;
 };
 
 export async function getUserById(userId) {
@@ -212,6 +212,11 @@ export async function togglePinChatNavbar(chatId) {
   return response.data;
 }
 
+export async function togglePinChatSidebar(chatId) {
+  const response = await axiosInstance.put(`/chats/${chatId}/pin-sidebar`);
+  return response.data;
+}
+
 export async function leaveChat(chatId) {
   const response = await axiosInstance.delete(`/chats/${chatId}/leave`);
   return response.data;
@@ -245,7 +250,7 @@ export async function getScores({ pageParam = null, search = "", tag = "", favor
   if (favoritesOnly) params.append("favoritesOnly", "true");
 
   const response = await axiosInstance.get(`/scores?${params.toString()}`);
-  return response.data; // { scores, nextCursor, totalCount }
+  return response.data;
 }
 
 export async function createScore(scoreData) {
@@ -282,7 +287,7 @@ export async function getTracks({ pageParam = null, search = "" }) {
   if (search) params.append("search", search);
 
   const response = await axiosInstance.get(`/tracks?${params.toString()}`);
-  return response.data; // Now returns { tracks, nextCursor }
+  return response.data;
 }
 
 export async function createTrack(trackData) {
@@ -329,3 +334,9 @@ export async function updateTrack(id, data) {
   const response = await axiosInstance.put(`/tracks/${id}`, data);
   return response.data;
 }
+
+export async function globalSearch(query) {
+  const res = await axiosInstance.get(`/search?q=${encodeURIComponent(query)}`);
+  return res.data;
+}
+

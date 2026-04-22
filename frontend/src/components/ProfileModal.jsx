@@ -9,7 +9,7 @@ const ProfileModal = () => {
   return (
     <dialog className={`modal ${isOpen ? "modal-open" : ""}`}>
       <div className="modal-box p-0 max-w-2xl max-h-[90vh] flex flex-col overflow-hidden bg-base-100 border border-base-300 shadow-2xl">
-        {/* HEADER / COVER IMAGE AREA - FIXED HEIGHT */}
+        {/* HEADER / COVER IMAGE AREA*/}
         <div className="relative h-[30vh] max-h-[300px] flex-none bg-base-300">
           <img
             src={selectedProfile.profilePic}
@@ -117,7 +117,7 @@ const ProfileModal = () => {
           </button>
         </div>
       </div>
-      
+
       {/* CLICK OUTSIDE TO CLOSE */}
       <form method="dialog" className="modal-backdrop">
         <button onClick={closeProfile}>close</button>

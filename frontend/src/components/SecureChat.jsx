@@ -58,12 +58,12 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
   const [replyTo, setReplyTo] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const { data: chatInfo } = useQuery({
     queryKey: ["chat", chatId],
     queryFn: () => getChatDetails(chatId),
     enabled: !!chatId,
-    staleTime: 0 
+    staleTime: 0
   });
 
   const pinnedMessages = messages.filter(m => m.isPinned);
@@ -125,8 +125,6 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
 
         setMessages(history);
         setIsLoading(false);
-        
-        // info is now available for the following crypto logic without being stored in state
 
         if (isRegeneratingRef.current) return;
 
@@ -637,7 +635,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
 
   const handleStartCall = () => {
     const isGroupChat = !!chatInfo?.isGroup;
-    
+
     const callPayload = {
       targetUserId: isGroupChat ? null : targetUserId,
       targetName: isGroupChat ? (chatInfo?.name || "Group Collaboration") : targetUserName,
@@ -698,7 +696,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
       <div className="bg-base-100 p-4 border-b border-white/10 flex justify-between items-center bg-opacity-80 backdrop-blur">
         <div className="flex items-center gap-3">
           <div className="avatar">
-            <div className="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center overflow-hidden border border-white/5">
+            <div className="w-10 h-10 rounded-full bg-base-300 !flex items-center justify-center overflow-hidden border border-white/5">
               {chatInfo?.isGroup ? (
                 chatInfo.groupImage ? (
                   <img src={chatInfo.groupImage} alt={chatInfo.name} className="size-full object-cover" />
@@ -706,9 +704,9 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
                   <UsersIcon className="size-5 text-base-content/70" />
                 )
               ) : (
-                <img 
-                  src={chatInfo?.members?.find(m => m.id !== currentUserId)?.profilePic || "/avatar-placeholder.png"} 
-                  alt="Avatar" 
+                <img
+                  src={chatInfo?.members?.find(m => m.id !== currentUserId)?.profilePic || "/avatar-placeholder.png"}
+                  alt="Avatar"
                   className="size-full object-cover"
                 />
               )}
@@ -1008,7 +1006,7 @@ const SecureChat = ({ chatId, currentUserId, targetUserId, targetUserName }) => 
           onClose={(shouldRedirect) => {
             setIsGroupSettingsOpen(false);
             if (shouldRedirect) {
-              navigate("/"); // Re-route to base collaborators list
+              navigate("/");
             }
           }}
         />

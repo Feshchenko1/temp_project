@@ -44,7 +44,6 @@ export const initializeSocket = (server) => {
 
     socket.join(`user_${socket.userId}`);
     
-    // Helper for global call status broadcasting
     const broadcastCallStatus = async (chatId, isActive, activeCallId = null) => {
       try {
         const chat = await prisma.chat.findUnique({
@@ -177,7 +176,6 @@ export const initializeSocket = (server) => {
 
     socket.on("call:join", ({ chatId }) => {
       socket.join(`call_${chatId}`);
-      // Notify others in the call room
       socket.to(`call_${chatId}`).emit("call:user-joined", {
         userId: socket.userId,
         chatId
@@ -188,7 +186,6 @@ export const initializeSocket = (server) => {
       const { targetUserId, chatId, callerName, isGroup } = data;
       console.log("BACKEND: Received call:initiate ->", data);
 
-      // 1. UNCONDITIONAL SIGNALING (IMMEDIATE)
       if (isGroup) {
         socket.to(`chat_${chatId}`).emit("call:incoming", {
           fromUserId: socket.userId,
@@ -205,14 +202,12 @@ export const initializeSocket = (server) => {
         });
       }
 
-      // 2. PRESENCE SECOND: Update DB and indicators
       try {
         await prisma.chat.update({
           where: { id: chatId },
           data: { activeCallId: socket.userId }
         });
         
-        // Global broadcast to all members individually for indicators
         await broadcastCallStatus(chatId, true, socket.userId);
       } catch (error) {
         console.error("Error updating activeCallId:", error);
@@ -222,7 +217,6 @@ export const initializeSocket = (server) => {
     socket.on("call:leave", async ({ chatId }) => {
       socket.leave(`call_${chatId}`);
       
-      // Strict room size check AFTER leaving
       const room = io.sockets.adapter.rooms.get(`call_${chatId}`);
       const remainingSize = room ? room.size : 0;
 
@@ -236,9 +230,6 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("call:response", async ({ targetUserId, accepted, chatId }) => {
-      // Logic Shift: Declining no longer kills the room. 
-      // The room only dies if the last person leaves (call:leave) or disconnects.
-      
       io.to(`user_${targetUserId}`).emit("call:response", {
         fromUserId: socket.userId,
         accepted,
@@ -247,7 +238,6 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("call:cancel", async ({ targetUserId, chatId }) => {
-      // Cancel Path: Initiator hung up before answer
       try {
         await prisma.chat.update({
           where: { id: chatId },
@@ -262,7 +252,6 @@ export const initializeSocket = (server) => {
     });
 
     socket.on("disconnect", async () => {
-      // 1. Online status cleanup
       if (socket.userId && onlineUsers.has(socket.userId)) {
         onlineUsers.get(socket.userId).delete(socket.id);
         if (onlineUsers.get(socket.userId).size === 0) {
@@ -271,13 +260,9 @@ export const initializeSocket = (server) => {
         io.emit("user_status_change", Array.from(onlineUsers.keys()));
       }
 
-      // 2. Call cleanup: Check if user was in any call rooms
-      // Note: In socket.io v4, socket.rooms is cleared on disconnect.
-      // We must check the adapter for all rooms that are now empty.
       const rooms = io.sockets.adapter.rooms;
       for (const [roomName, room] of rooms) {
         if (roomName.startsWith("call_")) {
-          // If the room still exists and has no more members after this disconnect
           if (room.size === 0) {
             const chatId = roomName.replace("call_", "");
             await prisma.chat.update({
@@ -289,7 +274,6 @@ export const initializeSocket = (server) => {
         }
       }
 
-      // Fallback: Check if any chat has this user as activeCallId and room is empty
       try {
         const chatsWithUser = await prisma.chat.findMany({
           where: { activeCallId: socket.userId }

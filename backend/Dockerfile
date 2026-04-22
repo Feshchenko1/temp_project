@@ -1,22 +1,16 @@
-# Base Image
 FROM --platform=linux/arm64 node:20-alpine AS base
-# ДОДАЄМО ЦЕЙ РЯДОК ДЛЯ PRISMA:
 RUN apk add --no-cache openssl
 
-# Install dependencies
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
-
-# Builder stage
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 
-# Production runner
 FROM base AS runner
 WORKDIR /app
 

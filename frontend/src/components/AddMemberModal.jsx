@@ -15,12 +15,11 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
     queryFn: getUserFriends
   });
 
-  // Filter out friends who are already in the group
-  const potentialNewMembers = friends.filter(friend => 
+  const potentialNewMembers = friends.filter(friend =>
     !existingMembers.some(member => member.id === friend.id)
   );
 
-  const filteredPotential = potentialNewMembers.filter(f => 
+  const filteredPotential = potentialNewMembers.filter(f =>
     f.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -28,13 +27,11 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
     mutationFn: async () => {
       if (selectedFriends.length === 0) throw new Error("Select at least one friend");
 
-      // 1. Get the current AES key for this chat from IndexedDB
       const aesKey = await getSessionKey(chatId);
       if (!aesKey) {
         throw new Error("Symmetric key not found locally. Please ensure the chat is secured before adding members.");
       }
 
-      // 2. Prepare the groupKeys for the new members
       const newGroupKeys = [];
       const memberIds = [];
 
@@ -45,7 +42,7 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
         try {
           const pubKey = await importPublicKey(friend.publicKey);
           const encryptedKey = await encryptSymmetricKey(pubKey, aesKey);
-          
+
           newGroupKeys.push({
             recipientId: friend.id,
             encryptedKey: encryptedKey
@@ -60,7 +57,6 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
         throw new Error("None of the selected friends have a valid public key.");
       }
 
-      // 3. Send to backend
       return await addGroupMembers(chatId, {
         memberIds,
         groupKeys: newGroupKeys
@@ -77,7 +73,7 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
   });
 
   const toggleFriend = (id) => {
-    setSelectedFriends(prev => 
+    setSelectedFriends(prev =>
       prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
     );
   };
@@ -85,7 +81,7 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-base-100 rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        
+
         <div className="flex py-4 px-6 items-center justify-between border-b border-base-200">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <UserPlusIcon className="size-5 text-primary" />
@@ -99,7 +95,7 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
         <div className="p-6 space-y-4">
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 opacity-50" />
-            <input 
+            <input
               type="text"
               placeholder="Search friends..."
               className="input input-sm input-bordered w-full pl-9 bg-base-200/50"
@@ -116,8 +112,8 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
             ) : (
               filteredPotential.map(friend => (
                 <label key={friend.id} className="flex items-center gap-3 p-2 hover:bg-base-100 rounded-xl cursor-pointer transition-colors">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     className="checkbox checkbox-primary checkbox-sm rounded-md"
                     checked={selectedFriends.includes(friend.id)}
                     onChange={() => toggleFriend(friend.id)}
@@ -149,7 +145,7 @@ export default function AddMemberModal({ chatId, existingMembers = [], onClose }
 
         <div className="p-4 bg-base-200 flex justify-end gap-3 border-t border-base-300">
           <button onClick={() => onClose()} className="btn btn-ghost btn-sm px-6" disabled={isPending}>Cancel</button>
-          <button 
+          <button
             onClick={() => handleAddMembers()}
             className="btn btn-primary btn-sm px-6 shadow-lg shadow-primary/20"
             disabled={isPending || selectedFriends.length === 0}

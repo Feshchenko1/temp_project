@@ -26,7 +26,6 @@ import UserCard from "../components/UserCard";
 import NoFriendsFound from "../components/NoFriendsFound";
 import useAuthUser from "../hooks/useAuthUser";
 
-// Basic placeholder options (can be expanded later)
 const INSTRUMENT_OPTIONS = ["Piano", "Guitar", "Drums", "Bass", "Vocals", "Violin", "Synthesizer", "Saxophone"].map(i => ({ value: i, label: i }));
 const LANGUAGE_OPTIONS = ["English", "Spanish", "French", "German", "Japanese", "Ukrainian"].map(l => ({ value: l, label: l }));
 
@@ -104,15 +103,12 @@ const HomePage = () => {
       return acceptFriendRequest(requestId);
     },
     onMutate: async ({ requestId, userId }) => {
-      // 1. Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
 
-      // 2. Snapshot the current state
       const previousStoreRequests = useNotificationStore.getState().pendingRequests;
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
 
-      // 3. Optimistically update
-      removeRequest(requestId); // This triggers the store update + silence period
+      removeRequest(requestId);
 
       if (previousQueryData) {
         queryClient.setQueryData(["friend-requests"], (old) => {
@@ -131,15 +127,12 @@ const HomePage = () => {
       if (data?.chat) {
         queryClient.setQueryData(["recent-chats"], (oldChats) => {
           const currentChats = oldChats || [];
-          // Prevent duplicates
           if (currentChats.some(c => c.id === data.chat.id)) return currentChats;
-          // Inject at the top of the list
           return [data.chat, ...currentChats];
         });
       }
     },
     onError: (err, { requestId, userId }, context) => {
-      // 4. Rollback
       if (context?.previousStoreRequests) {
         useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
       }
@@ -149,7 +142,6 @@ const HomePage = () => {
       toast.error("Failed to accept friend request");
     },
     onSettled: () => {
-      // 5. Invalidate to sync server state
       queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
       queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -164,15 +156,11 @@ const HomePage = () => {
       return rejectFriendRequest(requestId);
     },
     onMutate: async ({ requestId, userId }) => {
-      // 1. Cancel outgoing queries
       await queryClient.cancelQueries({ queryKey: ["friend-requests"] });
 
-      // 2. Snapshot
       const previousStoreRequests = useNotificationStore.getState().pendingRequests;
       const previousQueryData = queryClient.getQueryData(["friend-requests"]);
-
-      // 3. Optimistic update
-      removeRequest(requestId); // This triggers the store update + silence period
+      removeRequest(requestId);
 
       if (previousQueryData) {
         queryClient.setQueryData(["friend-requests"], (old) => {
@@ -190,7 +178,6 @@ const HomePage = () => {
       toast.success("Friend request rejected");
     },
     onError: (err, { requestId, userId }, context) => {
-      // 4. Rollback
       if (context?.previousStoreRequests) {
         useNotificationStore.setState({ pendingRequests: context.previousStoreRequests });
       }
@@ -200,7 +187,6 @@ const HomePage = () => {
       toast.error("Failed to reject friend request");
     },
     onSettled: () => {
-      // 5. Invalidate
       queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
       setProcessingId(null);
     }
@@ -239,12 +225,12 @@ const HomePage = () => {
 
   useEffect(() => {
     const outgoingIds = new Set();
-    if (outgoingFriendReqs && outgoingFriendReqs.length > 0) {
+    if (outgoingFriendReqs) {
       outgoingFriendReqs.forEach((req) => {
         outgoingIds.add(req.recipient.id);
       });
-      setOutgoingRequestsIds(outgoingIds);
     }
+    setOutgoingRequestsIds(outgoingIds);
   }, [outgoingFriendReqs]);
 
   const handlePinToggle = async (chatId, isCurrentlyPinned) => {
