@@ -20,6 +20,7 @@ import searchRoutes from "./routes/search.route.js";
 import { connectDB } from "./lib/db.js";
 
 const app = express();
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 
 const io = initializeSocket(server);
@@ -30,9 +31,20 @@ const __dirname = path.resolve();
 
 app.use(helmet());
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.CLIENT_URL
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".trycloudflare.com")) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );

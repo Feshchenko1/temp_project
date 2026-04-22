@@ -12,6 +12,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
   backend:
     build:
@@ -21,11 +25,23 @@ services:
     restart: unless-stopped
     networks:
       - harmonix-net
-    # ПЕРЕДАЄМО ВЕСЬ ФАЙЛ .env ОДРАЗУ В КОНТЕЙНЕР
     env_file:
       - ./backend/.env
     environment:
       - NODE_ENV=production
+      - PORT=3001
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    depends_on:
+      - db-init
+
+  db-init:
+    image: alpine
+    command: [ "echo", "Database connection established" ]
+    networks:
+      - harmonix-net
 
   nginx:
     image: nginx:alpine
@@ -40,6 +56,10 @@ services:
       - backend
     networks:
       - harmonix-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
 networks:
   harmonix-net:

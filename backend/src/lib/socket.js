@@ -7,9 +7,20 @@ let io;
 const onlineUsers = new Map();
 
 export const initializeSocket = (server) => {
+  const allowedOrigins = [
+    "http://localhost:3000",
+    process.env.CLIENT_URL
+  ].filter(Boolean);
+
   io = new Server(server, {
     cors: {
-      origin: "http://localhost:3000",
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".trycloudflare.com")) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       credentials: true,
     },
   });
