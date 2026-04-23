@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { useCallStore } from "../store/useCallStore";
 import { getSessionKey, encryptMessage } from "../lib/crypto";
+import { uploadFileDirectly } from "../lib/api";
 
 const LocalVideo = memo(({ stream, isScreensharing }) => {
   const videoRef = useRef(null);
@@ -543,7 +544,7 @@ const VideoCallOverlay = ({ chatId, targetUserId, targetName, currentUserId, onE
           const prettyName = `[${targetName || "Session"}]_${formattedDate}.webm`;
 
           const file = new File([blob], prettyName, { type: "video/webm" });
-          const { fileUrl, originalName } = await import("../lib/api").then(m => m.uploadFileDirectly(file));
+          const { fileUrl, originalName } = await uploadFileDirectly(file);
 
           const aesKey = await getSessionKey(chatId);
           const notificationText = "🎬 Collaboration session recorded.";
