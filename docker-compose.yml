@@ -30,7 +30,6 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - CLIENT_URL=${CLIENT_URL}
     deploy:
       resources:
         limits:
