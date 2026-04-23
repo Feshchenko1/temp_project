@@ -20,14 +20,13 @@ import { useContextMenu } from "../hooks/useContextMenu";
 import ContextMenu from "../components/ContextMenu";
 import toast from "react-hot-toast";
 import { useUnreadStore } from "../store/useUnreadStore";
+import { INSTRUMENT_OPTIONS, LANGUAGE_OPTIONS } from "../constants/taxonomy";
+import { customSelectStyles } from "../lib/selectStyles";
 import Select from "react-select";
 
 import UserCard from "../components/UserCard";
 import NoFriendsFound from "../components/NoFriendsFound";
 import useAuthUser from "../hooks/useAuthUser";
-
-const INSTRUMENT_OPTIONS = ["Piano", "Guitar", "Drums", "Bass", "Vocals", "Violin", "Synthesizer", "Saxophone"].map(i => ({ value: i, label: i }));
-const LANGUAGE_OPTIONS = ["English", "Spanish", "French", "German", "Japanese", "Ukrainian"].map(l => ({ value: l, label: l }));
 
 const HomePage = () => {
   const { authUser } = useAuthUser();
@@ -192,36 +191,6 @@ const HomePage = () => {
     }
   });
 
-  const customSelectStyles = {
-    control: (base, state) => ({
-      ...base,
-      minHeight: "3rem",
-      backgroundColor: "rgba(0, 0, 0, 0.2)",
-      borderColor: state.isFocused ? "rgba(255, 255, 255, 0.1)" : "transparent",
-      borderRadius: "1rem",
-      boxShadow: "none",
-      cursor: "pointer",
-    }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    menu: (base) => ({
-      ...base,
-      backgroundColor: "#1d232a",
-      borderRadius: "1rem",
-      border: "1px solid rgba(255,255,255,0.05)",
-      overflow: "hidden"
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isFocused ? "rgba(255,255,255,0.05)" : "transparent",
-      color: state.isFocused ? "#fff" : "rgba(255,255,255,0.6)",
-      cursor: "pointer",
-    }),
-    multiValue: (base) => ({ ...base, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "6px" }),
-    multiValueLabel: (base) => ({ ...base, color: "#fff" }),
-    input: (base) => ({ ...base, color: "#fff" }),
-    placeholder: (base) => ({ ...base, color: "rgba(255,255,255,0.3)" }),
-    indicatorSeparator: () => ({ display: "none" })
-  };
 
   useEffect(() => {
     const outgoingIds = new Set();
@@ -318,14 +287,14 @@ const HomePage = () => {
                   <input
                     type="text"
                     placeholder="Search by name..."
-                    className="input input-bordered w-full bg-black/20 rounded-2xl border-transparent focus:border-white/10"
+                    className="input input-bordered w-full bg-transparent rounded-2xl border-base-content/20 focus:border-primary transition-all"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                   <input
                     type="text"
                     placeholder="Search location..."
-                    className="input input-bordered w-full bg-black/20 rounded-2xl border-transparent focus:border-white/10"
+                    className="input input-bordered w-full bg-transparent rounded-2xl border-base-content/20 focus:border-primary transition-all"
                     value={locationQuery}
                     onChange={(e) => setLocationQuery(e.target.value)}
                   />

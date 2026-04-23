@@ -55,7 +55,7 @@ export const useAudioStore = create(
           if (loopMode === 1) {
             nextIndex = 0; 
           } else {
-            get().stopTrack(); 
+            set({ isPlaying: false, currentTime: 0 });
             return;
           }
         }
@@ -98,7 +98,13 @@ export const useAudioStore = create(
       },
 
       toggleLoopMode: () => {
-        set((state) => ({ loopMode: (state.loopMode + 1) % 3 }));
+        const { queue } = get();
+        set((state) => {
+          if (queue.length <= 1) {
+            return { loopMode: state.loopMode === 0 ? 2 : 0 };
+          }
+          return { loopMode: (state.loopMode + 1) % 3 };
+        });
       },
 
       toggleShuffle: () => {

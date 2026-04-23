@@ -186,7 +186,7 @@ const AudioLibraryPage = () => {
           <input
             type="text"
             placeholder="Search tracks, artists, or genres..."
-            className="input input-lg input-bordered w-full pl-16 pr-6 bg-base-200/50 border-base-300 focus:border-secondary/40 focus:bg-base-100 transition-all rounded-3xl text-base-content font-bold placeholder:text-base-content/30"
+            className="input input-lg input-bordered w-full pl-16 pr-6 bg-transparent border-base-content/20 focus:border-secondary transition-all rounded-3xl text-base-content font-bold placeholder:text-base-content/30"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />

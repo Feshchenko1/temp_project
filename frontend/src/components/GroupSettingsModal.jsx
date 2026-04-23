@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getChatDetails, removeGroupMember, leaveChat, updateGroupDetails } from "../lib/api";
+import { getChatDetails, removeGroupMember, leaveChat, updateGroupDetails, uploadFileDirectly } from "../lib/api";
 import { XIcon, UsersIcon, UserMinusIcon, UserPlusIcon, LogOutIcon, ShieldCheckIcon, CalendarIcon, PencilIcon, CameraIcon, CheckIcon, RotateCcwIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import AddMemberModal from "./AddMemberModal";
@@ -12,6 +12,8 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [editedImage, setEditedImage] = useState(null);
+  const [rawImageFile, setRawImageFile] = useState(null);
+  const [isCloudUploading, setIsCloudUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   const { data: chat, isLoading } = useQuery({
@@ -74,6 +76,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
       return toast.error("Image must be smaller than 2MB");
     }
 
+    setRawImageFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {
       setEditedImage(reader.result);
@@ -81,12 +84,29 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editedName.trim()) return toast.error("Group name cannot be empty");
+
+    let finalImageUrl = editedImage;
+
+    if (rawImageFile) {
+      try {
+        setIsCloudUploading(true);
+        const { fileUrl } = await uploadFileDirectly(rawImageFile);
+        finalImageUrl = fileUrl;
+      } catch (error) {
+        console.error("Cloud upload error:", error);
+        toast.error("Failed to upload image to cloud");
+        setIsCloudUploading(false);
+        return;
+      } finally {
+        setIsCloudUploading(false);
+      }
+    }
 
     handleUpdateDetails({
       name: editedName,
-      groupImage: editedImage
+      groupImage: finalImageUrl
     });
   };
 
@@ -94,6 +114,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
     setIsEditing(false);
     setEditedName(chat?.name || "");
     setEditedImage(null);
+    setRawImageFile(null);
   };
 
   if (isLoading || !chat) {
@@ -143,6 +164,7 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
             <div className="p-8 flex flex-col items-center border-b border-base-200 bg-gradient-to-b from-base-200/50 to-transparent">
               <div className="avatar mb-4 group relative">
                 <div
+                  onClick={() => isEditing && fileInputRef.current?.click()}
                   className={`w-24 h-24 rounded-3xl ring-4 ring-base-100 shadow-xl overflow-hidden bg-base-300 !flex items-center justify-center ${isEditing ? "cursor-pointer" : ""}`}
                 >
                   {editedImage || chat.groupImage ? (
@@ -262,9 +284,9 @@ export default function GroupSettingsModal({ chatId, currentUserId, onClose }) {
                 <button
                   onClick={handleSave}
                   className="btn btn-primary btn-sm px-6 flex items-center gap-2"
-                  disabled={isUpdating || !editedName.trim()}
+                  disabled={isUpdating || isCloudUploading || !editedName.trim()}
                 >
-                  {isUpdating ? <span className="loading loading-spinner loading-xs" /> : <CheckIcon className="size-4" />}
+                  {isUpdating || isCloudUploading ? <span className="loading loading-spinner loading-xs" /> : <CheckIcon className="size-4" />}
                   Save Changes
                 </button>
               </>

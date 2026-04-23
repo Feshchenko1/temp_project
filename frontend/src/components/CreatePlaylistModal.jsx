@@ -7,7 +7,6 @@ import { toast } from "react-hot-toast";
 const CreatePlaylistModal = ({ isOpen, onClose }) => {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const mutation = useMutation({
@@ -27,7 +26,6 @@ const CreatePlaylistModal = ({ isOpen, onClose }) => {
 
   const handleClose = () => {
     setTitle("");
-    setDescription("");
     onClose();
   };
 
@@ -36,7 +34,7 @@ const CreatePlaylistModal = ({ isOpen, onClose }) => {
     if (!title.trim()) return toast.error("Title is required");
 
     setIsSubmitting(true);
-    mutation.mutate({ title, description });
+    mutation.mutate({ title });
   };
 
   if (!isOpen) return null;
@@ -73,19 +71,6 @@ const CreatePlaylistModal = ({ isOpen, onClose }) => {
                    value={title}
                    onChange={(e) => setTitle(e.target.value)}
                    required
-                 />
-              </div>
-            </div>
-
-            <div className="form-control">
-              <label className="label text-[10px] font-black uppercase tracking-widest opacity-50 px-2">Description (Optional)</label>
-              <div className="relative group">
-                 <AlignLeft className="absolute left-4 top-4 size-5 text-base-content/20 group-focus-within:text-secondary transition-colors" />
-                 <textarea
-                   placeholder="A collection of smooth tracks for deep work..."
-                   className="textarea textarea-bordered w-full pl-12 pt-4 bg-base-200 border-none focus:ring-2 ring-secondary/20 transition-all font-bold min-h-[100px]"
-                   value={description}
-                   onChange={(e) => setDescription(e.target.value)}
                  />
               </div>
             </div>

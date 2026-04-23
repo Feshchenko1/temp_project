@@ -6,6 +6,7 @@ import { clearCryptoDatabase } from "../lib/crypto";
 import { LoaderIcon, MapPinIcon, UploadCloudIcon, UserIcon, ShuffleIcon, Trash2Icon, AlertTriangleIcon } from "lucide-react";
 import Select from "react-select";
 import { INSTRUMENT_OPTIONS, LANGUAGE_OPTIONS } from "../constants/taxonomy";
+import { customSelectStyles } from "../lib/selectStyles";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 
@@ -27,55 +28,6 @@ const ProfileSettingsPage = () => {
 
   const [isUploading, setIsUploading] = useState(false);
 
-  const customSelectStyles = {
-    control: (base, state) => ({
-      ...base,
-      backgroundColor: "oklch(var(--b1))",
-      borderColor: state.isFocused ? "oklch(var(--p))" : "oklch(var(--bc) / 0.2)",
-      borderRadius: "0.5rem",
-      minHeight: "3rem",
-      boxShadow: "none",
-      "&:hover": {
-        borderColor: "oklch(var(--p) / 0.5)",
-      },
-    }),
-    menu: (base) => ({
-      ...base,
-      backgroundColor: "oklch(var(--b2))",
-      border: "1px solid oklch(var(--bc) / 0.1)",
-      zIndex: 50,
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isFocused ? "oklch(var(--p) / 0.2)" : "transparent",
-      color: "oklch(var(--bc))",
-      cursor: "pointer",
-      "&:active": {
-        backgroundColor: "oklch(var(--p) / 0.4)",
-      },
-    }),
-    multiValue: (base) => ({
-      ...base,
-      backgroundColor: "oklch(var(--p) / 0.2)",
-      borderRadius: "4px",
-    }),
-    multiValueLabel: (base) => ({
-      ...base,
-      color: "oklch(var(--bc))",
-    }),
-    multiValueRemove: (base) => ({
-      ...base,
-      color: "oklch(var(--bc))",
-      "&:hover": {
-        backgroundColor: "oklch(var(--p))",
-        color: "oklch(var(--pc))",
-      },
-    }),
-    input: (base) => ({
-      ...base,
-      color: "oklch(var(--bc))",
-    })
-  };
 
   useEffect(() => {
     if (authUser) {
@@ -223,7 +175,7 @@ const ProfileSettingsPage = () => {
               </label>
               <input
                 type="text"
-                className="input input-bordered bg-base-300/50 focus:input-primary transition-all rounded-xl"
+                className="input input-bordered bg-transparent focus:input-primary transition-all rounded-xl border-base-content/20"
                 placeholder="How do you want to be called?"
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
@@ -237,7 +189,7 @@ const ProfileSettingsPage = () => {
                 <MapPinIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-base-content/30" />
                 <input
                   type="text"
-                  className="input input-bordered w-full pl-12 bg-base-300/50 focus:input-primary transition-all rounded-xl"
+                  className="input input-bordered w-full pl-12 bg-transparent focus:input-primary transition-all rounded-xl border-base-content/20"
                   placeholder="City, Country"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
@@ -252,7 +204,7 @@ const ProfileSettingsPage = () => {
               <span className="label-text font-bold">Musical Bio</span>
             </label>
             <textarea
-              className="textarea textarea-bordered min-h-[120px] bg-base-300/50 focus:textarea-primary transition-all rounded-xl leading-relaxed"
+              className="textarea textarea-bordered min-h-[120px] bg-transparent focus:textarea-primary transition-all rounded-xl leading-relaxed border-base-content/20"
               placeholder="Tell us about your musical journey, influences, and what you're currently working on..."
               value={formData.bio}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}

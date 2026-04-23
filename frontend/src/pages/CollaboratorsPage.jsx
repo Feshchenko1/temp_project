@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { UsersIcon, MessageSquareIcon, SearchIcon, PlusIcon, BellOffIcon, LogOutIcon, UserMinusIcon, PinIcon, PinOffIcon, Video } from "lucide-react";
 import { useCallStore } from "../store/useCallStore";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRecentChats, markChatAsRead, toggleMuteChat, leaveChat, removeFriend, togglePinChatNavbar, togglePinChatSidebar } from "../lib/api";
 import useAuthUser from "../hooks/useAuthUser";
@@ -17,6 +17,7 @@ import toast from "react-hot-toast";
 const CollaboratorsPage = () => {
   const { authUser } = useAuthUser();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const chatId = searchParams.get("chatId");
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -187,7 +188,12 @@ const CollaboratorsPage = () => {
                 <MessageSquareIcon className="size-8" />
               </div>
               <p className="text-sm font-medium">No active connections</p>
-              <button className="btn btn-primary btn-sm btn-outline">Find Creators</button>
+              <button 
+                onClick={() => navigate("/")}
+                className="btn btn-primary btn-sm btn-outline"
+              >
+                Find Creators
+              </button>
             </div>
           ) : (
             <div className="space-y-1 p-2">
@@ -325,20 +331,20 @@ const CollaboratorsPage = () => {
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>
           <li>
             <button
-              onClick={() => handlePinSidebarToggle(contextMenu.data)}
-              className="flex items-center gap-2"
-            >
-              {contextMenu.data.isPinnedToSidebar ? <PinOffIcon className="size-4" /> : <PinIcon className="size-4" />}
-              {contextMenu.data.isPinnedToSidebar ? "Unpin from Top" : "Pin to Top"}
-            </button>
-          </li>
-          <li>
-            <button
               onClick={() => handlePinToggle(contextMenu.data)}
               className="flex items-center gap-2"
             >
               {contextMenu.data.isPinnedToNavbar ? <PinOffIcon className="size-4" /> : <PinIcon className="size-4" />}
               {contextMenu.data.isPinnedToNavbar ? "Unpin from Navbar" : "Pin to Navbar"}
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => handlePinSidebarToggle(contextMenu.data)}
+              className="flex items-center gap-2"
+            >
+              {contextMenu.data.isPinnedToSidebar ? <PinOffIcon className="size-4" /> : <PinIcon className="size-4" />}
+              {contextMenu.data.isPinnedToSidebar ? "Unpin from Top" : "Pin to Top"}
             </button>
           </li>
           <li>

@@ -29,8 +29,13 @@ const GlobalMusicPlayer = () => {
     playNext,
     playPrev,
     stopTrack,
-    triggerSeek
+    triggerSeek,
+    queue,
+    currentIndex
   } = useAudioStore();
+
+  const isAtEnd = currentIndex === queue.length - 1 && loopMode !== 1;
+  const isAtStart = currentIndex === 0;
 
   if (!currentTrack) return null;
 
@@ -97,50 +102,58 @@ const GlobalMusicPlayer = () => {
 
       <div className="p-3 space-y-3">
         {/* Controls */}
-        <div className="flex items-center justify-between px-2">
-          {/* Shuffle & Repeat */}
-          <div className="flex items-center gap-1">
+        <div className="flex w-full items-center justify-between gap-2 px-2">
+          {/* Left Zone: Shuffle & Prev */}
+          <div className="flex flex-1 justify-start items-center gap-2 min-w-0">
+            {queue.length > 1 && (
+              <>
+                <button 
+                  onClick={toggleShuffle}
+                  className={`p-1.5 rounded-lg transition-all shrink-0 ${isShuffled ? 'bg-primary/20 text-primary shadow-sm' : 'text-base-content/40 hover:text-primary hover:bg-primary/5'}`}
+                  title={isShuffled ? "Disable Shuffle" : "Enable Shuffle"}
+                >
+                  <Shuffle size={14} />
+                </button>
+                <button 
+                  onClick={playPrev}
+                  className="text-base-content/40 hover:text-primary transition-colors p-1 shrink-0"
+                  title="Previous Track"
+                >
+                  <SkipBack size={18} fill="currentColor" className="opacity-40 hover:opacity-100" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Center Zone: Play/Pause */}
+          <div className="flex-shrink-0 flex items-center justify-center">
             <button 
-              onClick={toggleShuffle}
-              className={`btn btn-ghost btn-xs btn-circle ${isShuffled ? 'text-primary' : 'text-base-content/30'}`}
-              title="Shuffle"
+              onClick={togglePlayPause}
+              className="btn btn-primary btn-sm btn-circle shadow-lg hover:scale-110 active:scale-95 transition-all"
             >
-              <Shuffle size={14} />
+              {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
             </button>
+          </div>
+
+          {/* Right Zone: Next & Repeat */}
+          <div className="flex flex-1 justify-end items-center gap-2 min-w-0">
+            {queue.length > 1 && (
+              <button 
+                onClick={playNext}
+                className="text-base-content/40 hover:text-primary transition-colors p-1 shrink-0"
+                title="Next Track"
+              >
+                <SkipForward size={18} fill="currentColor" className="opacity-40 hover:opacity-100" />
+              </button>
+            )}
             <button 
               onClick={toggleLoopMode}
-              className={`btn btn-ghost btn-xs btn-circle ${loopMode > 0 ? 'text-primary' : 'text-base-content/30'}`}
-              title={loopMode === 2 ? "Loop Track" : loopMode === 1 ? "Loop Queue" : "Loop Off"}
+              className={`p-1.5 rounded-lg transition-all shrink-0 ${loopMode > 0 ? 'bg-primary/20 text-primary shadow-sm' : 'text-base-content/40 hover:text-primary hover:bg-primary/5'}`}
+              title={loopMode === 1 ? "Loop All" : loopMode === 2 ? "Loop One" : "Enable Loop"}
             >
               {loopMode === 2 ? <Repeat1 size={14} /> : <Repeat size={14} />}
             </button>
           </div>
-
-          {/* Core Playback */}
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={playPrev}
-              className="btn btn-ghost btn-sm btn-circle text-base-content/70 hover:text-primary transition-colors"
-            >
-              <SkipBack size={18} />
-            </button>
-
-            <button
-              onClick={togglePlayPause}
-              className="btn btn-primary btn-sm btn-circle shadow-lg shadow-primary/20 transition-transform active:scale-90"
-            >
-              {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-            </button>
-
-            <button 
-              onClick={playNext}
-              className="btn btn-ghost btn-sm btn-circle text-base-content/70 hover:text-primary transition-colors"
-            >
-              <SkipForward size={18} />
-            </button>
-          </div>
-
-          <div className="w-12"></div> {/* Spacer for symmetry */}
         </div>
 
 

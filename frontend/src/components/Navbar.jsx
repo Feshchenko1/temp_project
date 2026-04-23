@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import useAuthUser from "../hooks/useAuthUser";
 import { acceptFriendRequest, rejectFriendRequest, getRecentChats } from "../lib/api";
 import { useProfileStore } from "../store/useProfileStore";
-import { Check, HeadphonesIcon, PanelLeftIcon, Play, Pause, X, Volume2, VolumeX, UsersIcon, SkipBack, SkipForward, Camera, Search, Plus, Bell, ShieldCheck, FileMusic, MessageSquare, Music } from "lucide-react";
+import { Check, HeadphonesIcon, PanelLeftIcon, Play, Pause, X, Volume2, VolumeX, UsersIcon, SkipBack, SkipForward, Camera, Search, Plus, Bell, ShieldCheck, FileMusic, MessageSquare, Music, Shuffle, Repeat, Repeat1 } from "lucide-react";
 import toast from "react-hot-toast";
 import CommandPalette from "./CommandPalette";
 import { useLayoutStore } from "../store/useLayoutStore";
@@ -15,7 +15,21 @@ import { useModalStore } from "../store/useModalStore";
 const Navbar = () => {
   const { authUser } = useAuthUser();
   const { isSidebarCollapsed, toggleSidebar, onlineUserIds } = useLayoutStore();
-  const { currentTrack, isPlaying, volume, setVolume, togglePlayPause, stopTrack, playNext, playPrev } = useAudioStore();
+  const { 
+    currentTrack, 
+    isPlaying, 
+    volume, 
+    setVolume, 
+    togglePlayPause, 
+    stopTrack, 
+    playNext, 
+    playPrev, 
+    queue,
+    isShuffled,
+    loopMode,
+    toggleShuffle,
+    toggleLoopMode
+  } = useAudioStore();
   const { unreadCounts } = useUnreadStore();
   const { pendingRequests, removeRequest } = useNotificationStore();
   const { openUploadTrackModal, openScoreFormModal, openCreateGroupModal } = useModalStore();
@@ -150,80 +164,107 @@ const Navbar = () => {
 
           {/* CENTER SECTION: PLAYER */}
           {isSidebarCollapsed && currentTrack && (
-            <div className="flex items-center justify-center shrink-0 z-30 min-w-[400px]">
+            <div className="flex items-center justify-center shrink-0 z-30 min-w-[440px]">
               <div className="flex items-center animate-in fade-in zoom-in-95 duration-500">
                 <div className="w-px h-10 bg-base-300 mx-2 hidden xl:block opacity-50 shrink-0"></div>
 
-                <div className="flex items-center gap-4 bg-base-100/60 backdrop-blur-md border border-base-300 rounded-full pl-1 pr-4 py-1.5 shadow-2xl hover:border-primary/30 transition-all w-full max-w-[360px] sm:max-w-md group overflow-hidden pointer-events-auto">
-                  <div className="size-9 rounded-full bg-primary/10 shrink-0 overflow-hidden border border-primary/5 shadow-inner">
-                    {currentTrack.user?.profilePic ? (
-                      <img src={currentTrack.user.profilePic} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-primary"><HeadphonesIcon size={16} /></div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-[11px] font-black leading-tight truncate group-hover:text-primary transition-colors">
-                        {currentTrack.title}
-                      </span>
-                      <span className="text-[9px] font-bold opacity-40 uppercase truncate tracking-tighter">
-                        {currentTrack.artist || "Harmonix"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button onClick={playPrev} className="text-base-content/40 hover:text-primary transition-colors p-1">
-                        <SkipBack size={14} />
-                      </button>
-
-                      <button onClick={togglePlayPause} className="btn btn-primary btn-xs btn-circle shrink-0 shadow-md hover:scale-110">
-                        {isPlaying ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
-                      </button>
-
-                      <button onClick={playNext} className="text-base-content/40 hover:text-primary transition-colors p-1">
-                        <SkipForward size={14} />
-                      </button>
-                    </div>
-
-                    {/* CUSTOM VOLUME SLIDER */}
-                    <div className="flex items-center gap-3 hidden sm:flex group/vol px-2">
-                      <button
-                        onClick={() => setVolume(volume > 0 ? 0 : 0.7)}
-                        className="text-base-content/30 hover:text-primary transition-all duration-300"
-                      >
-                        {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                      </button>
-
-                      <div className="relative w-16 sm:w-20 h-6 flex items-center group/slider">
-                        <div className="absolute w-full h-1 bg-base-300 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary transition-all duration-100"
-                            style={{ width: `${volume * 100}%` }}
-                          ></div>
-                        </div>
-                        <input
-                          type="range"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={volume}
-                          onChange={(e) => setVolume(Number(e.target.value))}
-                          className="absolute w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-                        <div
-                          className="absolute size-3 bg-white rounded-full border-2 border-primary shadow-md pointer-events-none transition-transform group-hover/slider:scale-125"
-                          style={{ left: `calc(${volume * 100}% - 6px)` }}
-                        ></div>
+                <div className="bg-base-100/60 backdrop-blur-md border border-base-300 rounded-full py-1.5 px-3 shadow-2xl hover:border-primary/30 transition-all w-full max-w-[440px] group overflow-hidden pointer-events-auto">
+                  <div className="flex items-center justify-between gap-3 w-full">
+                    
+                    {/* Track Info Slot (Left) */}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="size-8 rounded-full bg-primary/10 shrink-0 overflow-hidden border border-primary/5 shadow-inner">
+                        {currentTrack.user?.profilePic ? (
+                          <img src={currentTrack.user.profilePic} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-primary">
+                            <HeadphonesIcon size={14} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-black leading-tight truncate group-hover:text-primary transition-colors">
+                          {currentTrack.title}
+                        </span>
+                        <span className="text-[8px] font-bold opacity-40 uppercase truncate tracking-tighter">
+                          {currentTrack.artist || "Harmonix"}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="w-px h-5 bg-base-300/50"></div>
+                    {/* Controls Slot (Center) */}
+                    <div className="flex items-center justify-center gap-1 flex-shrink-0">
+                      {queue.length > 1 && (
+                        <>
+                          <button 
+                            onClick={toggleShuffle}
+                            className={`p-1.5 rounded-full transition-all hover:bg-base-200 ${isShuffled ? 'text-primary' : 'text-base-content/40'}`}
+                            title="Shuffle"
+                          >
+                            <Shuffle size={12} />
+                          </button>
+                          <button 
+                            onClick={playPrev} 
+                            className="text-base-content/40 hover:text-primary transition-colors p-1.5 rounded-full hover:bg-base-200"
+                          >
+                            <SkipBack size={14} />
+                          </button>
+                        </>
+                      )}
 
-                    <button onClick={stopTrack} className="text-base-content/20 hover:text-error transition-colors p-1">
-                      <X size={14} />
-                    </button>
+                      <button 
+                        onClick={togglePlayPause} 
+                        className="btn btn-primary btn-xs btn-circle shrink-0 shadow-lg hover:scale-110 active:scale-95 transition-all"
+                      >
+                        {isPlaying ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
+                      </button>
+
+                      {queue.length > 1 && (
+                        <button 
+                          onClick={playNext} 
+                          className="text-base-content/40 hover:text-primary transition-colors p-1.5 rounded-full hover:bg-base-200"
+                        >
+                          <SkipForward size={14} />
+                        </button>
+                      )}
+
+                      <button 
+                        onClick={toggleLoopMode}
+                        className={`p-1.5 rounded-full transition-all hover:bg-base-200 ${loopMode > 0 ? 'text-primary' : 'text-base-content/40'}`}
+                        title="Repeat"
+                      >
+                        {loopMode === 2 ? <Repeat1 size={12} /> : <Repeat size={12} />}
+                      </button>
+                    </div>
+
+                    {/* Right Actions Slot */}
+                    <div className="flex items-center gap-2 flex-1 justify-end">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setVolume(volume > 0 ? 0 : 0.7)}
+                          className="text-base-content/30 hover:text-primary transition-all p-1"
+                        >
+                          {volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                        </button>
+                        <div className="relative w-12 h-4 hidden sm:flex items-center group/slider">
+                          <div className="absolute w-full h-1 bg-base-300 rounded-full overflow-hidden">
+                            <div className="h-full bg-primary" style={{ width: `${volume * 100}%` }}></div>
+                          </div>
+                          <input
+                            type="range" min={0} max={1} step={0.01} value={volume}
+                            onChange={(e) => setVolume(Number(e.target.value))}
+                            className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                          />
+                        </div>
+                      </div>
+                      <div className="w-px h-4 bg-base-300/50"></div>
+                      <button 
+                        onClick={stopTrack} 
+                        className="text-base-content/20 hover:text-error transition-colors p-1.5 rounded-full hover:bg-error/10"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 

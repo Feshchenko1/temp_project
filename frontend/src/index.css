@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -12,13 +12,21 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-  border-radius: 4px;
+  background: hsl(var(--bc) / 0.2);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: hsl(var(--bc) / 0.3);
 }
+
+@layer utilities {
+  .font-outline-2 {
+    -webkit-text-stroke: 2px currentColor;
+    paint-order: stroke fill;
+  }
+}
+
 
 body {
   font-family: 'Inter', sans-serif;

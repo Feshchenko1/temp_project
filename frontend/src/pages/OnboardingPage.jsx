@@ -6,6 +6,7 @@ import { completeOnboarding, uploadFileDirectly } from "../lib/api";
 import { LoaderIcon, MapPinIcon, UploadCloudIcon, ShuffleIcon, UserIcon } from "lucide-react";
 import Select from "react-select";
 import { INSTRUMENT_OPTIONS, LANGUAGE_OPTIONS } from "../constants/taxonomy";
+import { customSelectStyles } from "../lib/selectStyles";
 
 
 
@@ -26,55 +27,6 @@ const OnboardingPage = () => {
 
   const [isUploading, setIsUploading] = useState(false);
 
-  const customSelectStyles = {
-    control: (base, state) => ({
-      ...base,
-      backgroundColor: "oklch(var(--b1))",
-      borderColor: state.isFocused ? "oklch(var(--p))" : "oklch(var(--bc) / 0.2)",
-      borderRadius: "0.5rem",
-      minHeight: "3rem",
-      boxShadow: "none",
-      "&:hover": {
-        borderColor: "oklch(var(--p) / 0.5)",
-      },
-    }),
-    menu: (base) => ({
-      ...base,
-      backgroundColor: "oklch(var(--b2))",
-      border: "1px solid oklch(var(--bc) / 0.1)",
-      zIndex: 50,
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isFocused ? "oklch(var(--p) / 0.2)" : "transparent",
-      color: "oklch(var(--bc))",
-      cursor: "pointer",
-      "&:active": {
-        backgroundColor: "oklch(var(--p) / 0.4)",
-      },
-    }),
-    multiValue: (base) => ({
-      ...base,
-      backgroundColor: "oklch(var(--p) / 0.2)",
-      borderRadius: "4px",
-    }),
-    multiValueLabel: (base) => ({
-      ...base,
-      color: "oklch(var(--bc))",
-    }),
-    multiValueRemove: (base) => ({
-      ...base,
-      color: "oklch(var(--bc))",
-      "&:hover": {
-        backgroundColor: "oklch(var(--p))",
-        color: "oklch(var(--pc))",
-      },
-    }),
-    input: (base) => ({
-      ...base,
-      color: "oklch(var(--bc))",
-    })
-  };
 
   const { mutate: onboardingMutation, isPending } = useMutation({
     mutationFn: completeOnboarding,
@@ -220,14 +172,14 @@ const OnboardingPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="form-control w-full space-y-1.5">
                 <label className="label py-0"><span className="text-sm font-medium text-base-content/80">Designation (Full Name)</span></label>
-                <input
-                  type="text"
-                  required
-                  value={formState.fullName}
-                  onChange={(e) => setFormState({ ...formState, fullName: e.target.value })}
-                  className="input input-bordered w-full bg-base-100"
-                  placeholder="Your artist name or moniker"
-                />
+                  <input
+                    type="text"
+                    required
+                    value={formState.fullName}
+                    onChange={(e) => setFormState({ ...formState, fullName: e.target.value })}
+                    className="input input-bordered w-full bg-transparent border-base-content/20"
+                    placeholder="Your artist name or moniker"
+                  />
               </div>
               <div className="form-control w-full space-y-1.5">
                 <label className="label py-0"><span className="text-sm font-medium text-base-content/80">Location (HQ)</span></label>
@@ -237,7 +189,7 @@ const OnboardingPage = () => {
                     type="text"
                     value={formState.location}
                     onChange={(e) => setFormState({ ...formState, location: e.target.value })}
-                    className="input input-bordered w-full pl-10 bg-base-100"
+                    className="input input-bordered w-full pl-10 bg-transparent border-base-content/20"
                     placeholder="City, Country"
                   />
                 </div>
@@ -249,7 +201,7 @@ const OnboardingPage = () => {
               <textarea
                 value={formState.bio}
                 onChange={(e) => setFormState({ ...formState, bio: e.target.value })}
-                className="textarea textarea-bordered h-24 bg-base-100"
+                className="textarea textarea-bordered h-24 bg-transparent border-base-content/20"
                 placeholder="Detail your musical background, active projects, or what you are looking to collaborate on..."
               />
             </div>

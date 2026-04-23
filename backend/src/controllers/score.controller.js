@@ -137,36 +137,39 @@ export const updateScore = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized to update this score" });
     }
 
-    await prisma.scoreTag.deleteMany({ where: { scoreId: id } });
+    const updatedScore = await prisma.$transaction(async (tx) => {
+      await tx.scoreTagMapping.deleteMany({ where: { scoreId: id } });
 
-    const updatedScore = await prisma.score.update({
-      where: { id },
-      data: {
-        title,
-        artist,
-        audioUrl,
-        tags: tags ? {
-          create: tags.map(tagName => ({
-            tag: {
-              connectOrCreate: {
-                where: { name: tagName },
-                create: { name: tagName }
+      return await tx.score.update({
+        where: { id },
+        data: {
+          title,
+          artist,
+          audioUrl,
+          tags: tags ? {
+            create: tags.map(tagName => ({
+              tag: {
+                connectOrCreate: {
+                  where: { name: tagName },
+                  create: { name: tagName }
+                }
               }
-            }
-          }))
-        } : undefined
-      },
-      include: {
-        user: { select: { fullName: true, profilePic: true } },
-        tags: { include: { tag: true } },
-        _count: {
-          select: { favoritedBy: true }
+            }))
+          } : undefined
         },
-        favoritedBy: {
-          where: { userId }
+        include: {
+          user: { select: { fullName: true, profilePic: true } },
+          tags: { include: { tag: true } },
+          _count: {
+            select: { favoritedBy: true }
+          },
+          favoritedBy: {
+            where: { userId }
+          }
         }
-      }
+      });
     });
+
 
     const formattedScore = {
       ...updatedScore,

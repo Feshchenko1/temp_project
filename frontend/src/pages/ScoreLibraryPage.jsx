@@ -4,6 +4,9 @@ import { useSearchParams } from "react-router";
 import { useScoreStore } from "../store/useScoreStore";
 import { useModalStore } from "../store/useModalStore";
 import { getScores } from "../lib/api";
+import { INSTRUMENT_OPTIONS } from "../constants/taxonomy";
+import { customSelectStyles } from "../lib/selectStyles";
+import toast from "react-hot-toast";
 import ScoreCard from "../components/ScoreCard";
 import Select from "react-select";
 import {
@@ -105,88 +108,6 @@ const ScoreLibraryPage = () => {
     return scores;
   }, [data, debouncedSearch, filterTagString, favoritesOnly]);
 
-  const customSelectStyles = {
-    control: (base, state) => ({
-      ...base,
-      minHeight: "4rem",
-      backgroundColor: "rgba(0, 0, 0, 0.2)",
-      borderColor: state.isFocused ? "rgba(255, 255, 255, 0.1)" : "transparent",
-      borderRadius: "1rem",
-      padding: "0 0.5rem",
-      boxShadow: "none",
-      "&:hover": {
-        borderColor: "rgba(255, 255, 255, 0.1)",
-      },
-      cursor: "pointer",
-    }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    menu: (base) => ({
-      ...base,
-      backgroundColor: "#1d232a",
-      borderRadius: "1rem",
-      marginTop: "8px",
-      border: "1px solid rgba(255,255,255,0.05)",
-      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-      overflow: "hidden"
-    }),
-    menuList: (base) => ({
-      ...base,
-      padding: "8px",
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isFocused ? "rgba(255,255,255,0.05)" : "transparent",
-      color: state.isFocused ? "#fff" : "rgba(255,255,255,0.6)",
-      borderRadius: "0.5rem",
-      cursor: "pointer",
-      padding: "10px 12px",
-      fontWeight: "600",
-      fontSize: "14px",
-      "&:active": {
-        backgroundColor: "rgba(255,255,255,0.1)",
-      }
-    }),
-    multiValue: (base) => ({
-      ...base,
-      backgroundColor: "rgba(255,255,255,0.1)",
-      borderRadius: "6px",
-    }),
-    multiValueLabel: (base) => ({
-      ...base,
-      color: "#fff",
-      fontWeight: "700",
-      fontSize: "12px",
-      padding: "4px 8px",
-    }),
-    multiValueRemove: (base) => ({
-      ...base,
-      color: "rgba(255,255,255,0.5)",
-      "&:hover": {
-        backgroundColor: "rgba(255,0,0,0.2)",
-        color: "#ff0000",
-      },
-    }),
-    input: (base) => ({
-      ...base,
-      color: "#fff",
-    }),
-    placeholder: (base) => ({
-      ...base,
-      color: "rgba(255,255,255,0.3)",
-      fontWeight: "600",
-      fontSize: "14px",
-    }),
-    indicatorSeparator: () => ({
-      display: "none",
-    }),
-    dropdownIndicator: (base) => ({
-      ...base,
-      color: "rgba(255,255,255,0.3)",
-      "&:hover": {
-        color: "rgba(255,255,255,0.7)",
-      }
-    })
-  };
 
   return (
     <div className="min-h-screen bg-base-100 p-4 lg:p-8">
