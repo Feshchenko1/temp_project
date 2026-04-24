@@ -153,7 +153,7 @@ const ForgotPasswordPage = () => {
                 </div>
                 <input
                   type="email"
-                  className={`input input-bordered w-full pl-10 bg-base-100 border-base-300 focus:border-primary transition-all duration-300 placeholder:text-base-content/30`}
+                  className={`input input-bordered w-full pl-10 bg-transparent border-base-content/20 focus:border-primary transition-all duration-300 placeholder:text-base-content/30`}
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -185,7 +185,7 @@ const ForgotPasswordPage = () => {
                 </div>
                 <input
                   type="text"
-                  className={`input input-bordered w-full pl-10 bg-base-100 font-mono tracking-widest uppercase focus:border-primary transition-all duration-300`}
+                  className={`input input-bordered w-full pl-10 bg-transparent border-base-content/20 font-mono tracking-widest uppercase focus:border-primary transition-all duration-300`}
                   placeholder="XXXX-XXXX-XXXX-XXXX"
                   value={recoveryKeyInput}
                   onChange={(e) => setRecoveryKeyInput(e.target.value.toUpperCase())}
@@ -204,7 +204,7 @@ const ForgotPasswordPage = () => {
                 </div>
                 <input
                   type="password"
-                  className={`input input-bordered w-full pl-10 bg-base-100 border-base-300 focus:border-primary transition-all duration-300`}
+                  className={`input input-bordered w-full pl-10 bg-transparent border-base-content/20 focus:border-primary transition-all duration-300`}
                   placeholder="••••••••"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}

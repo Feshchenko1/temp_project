@@ -49,7 +49,7 @@ const CollaboratorsPage = () => {
     if (chatId) {
       setSelectedChatId(chatId);
       setActiveChatId(chatId);
-      if (unreadCounts[chatId] > 0) {
+      if (unreadCounts[chatId]?.count > 0) {
         markChatAsRead(chatId).catch(console.error);
         clearCount(chatId);
       }

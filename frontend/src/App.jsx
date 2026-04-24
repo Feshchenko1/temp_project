@@ -95,25 +95,60 @@ const App = () => {
       }).catch(console.error);
 
       const handleReceiveMessage = (message) => {
-        if (message.senderId !== authUser.id) {
-          incrementCount(message.chatId);
+        const currentAuthUser = queryClient.getQueryData(["authUser"])?.user;
+        if (!currentAuthUser) return;
 
-          const { activeChatId } = useUnreadStore.getState();
-          if (message.chatId !== activeChatId) {
-            queryClient.invalidateQueries({ queryKey: ["recent-chats"] });
-          }
+        if (message.senderId !== currentAuthUser.id) {
+          useUnreadStore.getState().incrementCount(message.chatId);
 
-          const recentChats = queryClient.getQueryData(["recent-chats"]) || [];
-          const chatExists = recentChats.some(c => c.id === message.chatId);
+          queryClient.setQueryData(["recent-chats"], (oldChats) => {
+            if (!oldChats) return oldChats;
+
+            const chatIndex = oldChats.findIndex(c => c.id === message.chatId);
+            const updatedChats = [...oldChats];
+
+            if (chatIndex !== -1) {
+              const targetChat = { ...updatedChats[chatIndex] };
+
+              targetChat.lastMessage = {
+                id: message.id,
+                content: message.content,
+                createdAt: message.createdAt,
+                sender: message.sender,
+                chatId: message.chatId
+              };
+              targetChat.updatedAt = message.createdAt;
+
+              updatedChats.splice(chatIndex, 1);
+              updatedChats.unshift(targetChat);
+            }
+
+            return updatedChats;
+          });
+
+          queryClient.invalidateQueries({
+            queryKey: ["recent-chats"],
+            refetchType: "none"
+          });
+          const recentChatsData = queryClient.getQueryData(["recent-chats"]) || [];
+          const chatExists = recentChatsData.some(c => c.id === message.chatId);
           if (!chatExists) {
-            socket.emit("join-chat", message.chatId);
+            getSocket()?.emit("join-chat", message.chatId);
           }
         }
       };
 
       const handleMessagesRead = ({ chatId, readerId }) => {
-        if (readerId === authUser.id) {
-          clearCount(chatId);
+        const currentAuthUser = queryClient.getQueryData(["authUser"])?.user;
+        if (!currentAuthUser) return;
+
+        if (readerId === currentAuthUser.id) {
+          useUnreadStore.getState().clearCount(chatId);
+
+          queryClient.invalidateQueries({
+            queryKey: ["recent-chats"],
+            refetchType: "none"
+          });
         }
       };
 

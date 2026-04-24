@@ -57,7 +57,7 @@ const LoginPage = () => {
                     <input
                       type="email"
                       placeholder="producer@harmonix.com"
-                      className="input input-bordered w-full pl-10 bg-base-100 focus:border-primary transition-colors"
+                      className="input input-bordered w-full pl-10 bg-transparent border-base-content/20 focus:border-primary transition-colors"
                       value={loginData.email}
                       onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                       required
@@ -74,7 +74,7 @@ const LoginPage = () => {
                     <input
                       type="password"
                       placeholder="••••••••"
-                      className="input input-bordered w-full pl-10 bg-base-100 focus:border-primary transition-colors"
+                      className="input input-bordered w-full pl-10 bg-transparent border-base-content/20 focus:border-primary transition-colors"
                       value={loginData.password}
                       onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                       required

@@ -93,7 +93,7 @@ const UploadTrackModal = ({ isOpen, onClose }) => {
                 <input
                   type="text"
                   placeholder="e.g. Midnight Jazz"
-                  className="input input-bordered bg-base-200 border-none focus:ring-2 ring-primary/20 transition-all font-bold"
+                  className="input input-bordered w-full bg-transparent border-base-content/20 focus:border-primary transition-all font-bold"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
@@ -104,7 +104,7 @@ const UploadTrackModal = ({ isOpen, onClose }) => {
                 <input
                   type="text"
                   placeholder="e.g. Harmonix Collective"
-                  className="input input-bordered bg-base-200 border-none focus:ring-2 ring-primary/20 transition-all font-bold"
+                  className="input input-bordered w-full bg-transparent border-base-content/20 focus:border-primary transition-all font-bold"
                   value={artist}
                   onChange={(e) => setArtist(e.target.value)}
                   required

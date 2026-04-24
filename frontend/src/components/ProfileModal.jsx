@@ -1,10 +1,50 @@
 import { useProfileStore } from "../store/useProfileStore";
-import { MapPinIcon, XIcon, MusicIcon, GraduationCapIcon, LanguagesIcon } from "lucide-react";
+import { MapPinIcon, XIcon, MusicIcon, GraduationCapIcon, LanguagesIcon, MessageSquareIcon } from "lucide-react";
+import { useNavigate } from "react-router";
+import { getOrCreateChatByUserId, markChatAsRead, getUserFriends } from "../lib/api";
+import { useUnreadStore } from "../store/useUnreadStore";
+import { useQuery } from "@tanstack/react-query";
+import useAuthUser from "../hooks/useAuthUser";
+import toast from "react-hot-toast";
 
 const ProfileModal = () => {
   const { selectedProfile, isOpen, closeProfile } = useProfileStore();
+  const navigate = useNavigate();
+  const { clearCount, unreadCounts } = useUnreadStore();
+  const { authUser } = useAuthUser();
+
+  const { data: friends } = useQuery({
+    queryKey: ["friends"],
+    queryFn: getUserFriends,
+    enabled: !!authUser && isOpen,
+  });
 
   if (!selectedProfile) return null;
+
+  const isFriend = friends?.some((f) => f.id === selectedProfile.id);
+  const isMe = authUser?.id === selectedProfile.id;
+  const showMessageButton = isFriend && !isMe;
+
+  const handleMessageClick = async () => {
+    try {
+      const chat = await getOrCreateChatByUserId(selectedProfile.id);
+
+      if (unreadCounts[chat.id]?.count > 0) {
+        try {
+          await markChatAsRead(chat.id);
+          clearCount(chat.id);
+        } catch (readError) {
+          console.error("Error marking chat as read:", readError);
+        }
+      }
+
+      closeProfile();
+      navigate(`/collaborators?chatId=${chat.id}`);
+    } catch (error) {
+      console.error("Error creating/navigating to chat:", error);
+      toast.error("Failed to open chat");
+    }
+  };
 
   return (
     <dialog className={`modal ${isOpen ? "modal-open" : ""}`}>
@@ -111,8 +151,14 @@ const ProfileModal = () => {
         </div>
 
         {/* STICKY FOOTER */}
-        <div className="p-4 border-t border-base-300 bg-base-200/50 flex-none sticky bottom-0 z-10">
-          <button onClick={closeProfile} className="btn btn-ghost w-full">
+        <div className="p-4 border-t border-base-300 bg-base-200/50 flex-none sticky bottom-0 z-10 flex gap-2">
+          {showMessageButton && (
+            <button onClick={handleMessageClick} className="btn btn-primary flex-1 font-bold">
+              <MessageSquareIcon className="size-4 mr-2" />
+              Message
+            </button>
+          )}
+          <button onClick={closeProfile} className={`btn btn-ghost ${!showMessageButton ? "flex-1" : ""}`}>
             Close Profile
           </button>
         </div>
@@ -127,3 +173,4 @@ const ProfileModal = () => {
 };
 
 export default ProfileModal;
+

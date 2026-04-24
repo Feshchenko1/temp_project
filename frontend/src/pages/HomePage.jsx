@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { CheckCircleIcon, MapPinIcon, UserPlusIcon, XIcon, CheckIcon, BellOffIcon, UserMinusIcon, PinIcon, PinOffIcon } from "lucide-react";
 import { useNotificationStore } from "../store/useNotificationStore";
 import {
@@ -12,7 +12,8 @@ import {
   rejectFriendRequest,
   removeFriend,
   toggleMuteChat,
-  togglePinChatNavbar
+  togglePinChatNavbar,
+  markChatAsRead
 } from "../lib/api";
 
 import { capitialize } from "../lib/utils";
@@ -31,11 +32,12 @@ import useAuthUser from "../hooks/useAuthUser";
 const HomePage = () => {
   const { authUser } = useAuthUser();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { pendingRequests, removeRequest } = useNotificationStore();
   const [processingId, setProcessingId] = useState(null);
   const [outgoingRequestsIds, setOutgoingRequestsIds] = useState(new Set());
   const { contextMenu, handleContextMenu, closeContextMenu } = useContextMenu();
-  const { unreadCounts } = useUnreadStore();
+  const { unreadCounts, clearCount } = useUnreadStore();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
@@ -148,6 +150,18 @@ const HomePage = () => {
       setProcessingId(null);
     }
   });
+
+  const handleMessageClick = async (chatId) => {
+    if (unreadCounts[chatId]?.count > 0) {
+      try {
+        await markChatAsRead(chatId);
+        clearCount(chatId);
+      } catch (err) {
+        console.error("Error clearing unread on home:", err);
+      }
+    }
+    navigate(`/collaborators?chatId=${chatId}`);
+  };
 
   const { mutate: rejectMutation } = useMutation({
     mutationFn: ({ requestId, userId }) => {
@@ -264,12 +278,12 @@ const HomePage = () => {
                   isCallActive={chat.isCallActive}
                   onContextMenu={(e, data) => handleContextMenu(e, data)}
                 >
-                  <Link
-                    to={`/collaborators?chatId=${chat.id}`}
-                    className="btn btn-primary w-full btn-sm"
+                  <button
+                    onClick={() => handleMessageClick(chat.id)}
+                    className="btn btn-primary w-full btn-sm font-bold"
                   >
                     Message
-                  </Link>
+                  </button>
                 </UserCard>
               ))}
             </div>

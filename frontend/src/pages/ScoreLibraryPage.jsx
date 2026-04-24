@@ -119,8 +119,8 @@ const ScoreLibraryPage = () => {
               <div className="p-3 bg-primary/10 rounded-2xl">
                 <Library className="text-primary" size={32} />
               </div>
-              <h1 className="text-4xl font-black tracking-tight text-base-content">
-                Score <span className="text-primary font-outline-2">Library</span>
+              <h1 className="text-4xl font-bold tracking-tight text-base-content">
+                Score <span className="text-primary font-light">Library</span>
               </h1>
             </div>
             <p className="text-base-content/50 font-bold uppercase tracking-widest text-[10px] pl-1">

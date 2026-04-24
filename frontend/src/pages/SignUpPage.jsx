@@ -121,7 +121,7 @@ const SignUpPage = () => {
                     <input
                       type="text"
                       placeholder="Jimmy Page"
-                      className="input input-bordered w-full pl-10 bg-base-100 focus:border-primary transition-colors"
+                      className="input input-bordered w-full pl-10 bg-transparent border-base-content/20 focus:border-primary transition-colors"
                       value={signupData.fullName}
                       onChange={(e) => setSignupData({ ...signupData, fullName: e.target.value })}
                       required
@@ -138,7 +138,7 @@ const SignUpPage = () => {
                     <input
                       type="email"
                       placeholder="producer@harmonix.com"
-                      className="input input-bordered w-full pl-10 bg-base-100 focus:border-primary transition-colors"
+                      className="input input-bordered w-full pl-10 bg-transparent border-base-content/20 focus:border-primary transition-colors"
                       value={signupData.email}
                       onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
                       required
@@ -155,7 +155,7 @@ const SignUpPage = () => {
                     <input
                       type="password"
                       placeholder="••••••••"
-                      className="input input-bordered w-full pl-10 bg-base-100 focus:border-primary transition-colors"
+                      className="input input-bordered w-full pl-10 bg-transparent border-base-content/20 focus:border-primary transition-colors"
                       value={signupData.password}
                       onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
                       required

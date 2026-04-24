@@ -171,7 +171,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
                 <input
                   type="text"
                   placeholder="Enter composition title"
-                  className="input input-bordered w-full h-14 pl-12 rounded-2xl font-bold border-2 focus:border-primary transition-all bg-base-200/50"
+                  className="input input-bordered w-full h-14 pl-12 rounded-2xl font-bold bg-transparent border-base-content/20 focus:border-primary transition-all"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
@@ -185,7 +185,7 @@ const ScoreFormModal = ({ isOpen, onClose, score = null }) => {
                 <input
                   type="text"
                   placeholder="Unknown Artist"
-                  className="input input-bordered w-full h-14 pl-12 rounded-2xl font-bold border-2 focus:border-primary transition-all bg-base-200/50"
+                  className="input input-bordered w-full h-14 pl-12 rounded-2xl font-bold bg-transparent border-base-content/20 focus:border-primary transition-all"
                   value={formData.artist}
                   onChange={(e) => setFormData({ ...formData, artist: e.target.value })}
                 />

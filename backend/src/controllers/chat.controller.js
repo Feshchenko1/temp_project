@@ -163,6 +163,15 @@ export async function getOrCreateChat(req, res) {
       return res.status(400).json({ message: "Cannot create a chat with yourself" });
     }
 
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true }
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "Target user not found" });
+    }
+
     let chat = await prisma.chat.findFirst({
       where: {
         isGroup: false,
@@ -237,9 +246,11 @@ export async function getOrCreateChat(req, res) {
 
     res.status(200).json(formattedChat);
   } catch (error) {
+    console.error("[ChatController] getOrCreateChat error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
+
 
 export async function getRecentChats(req, res) {
   try {
